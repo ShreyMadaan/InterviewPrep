@@ -375,3 +375,246 @@
     response. The e here is a SyntheticEvent wrapping the native SubmitEvent. Calling
     preventDefault on the synthetic event delegates to the native event's preventDefault
     internally. This pattern is fundamental to any SPA framework, not just React.
+
+## Question 22:
+    What does "lifting state up" mean in React?
+    
+    Beginner Answer: When two components need the same data, we move the state to
+    their common parent and pass it down as props. This way both children read from
+    the same source.
+    
+    Experienced Answer: Lifting state up is React's primary mechanism for sharing
+    mutable state between siblings without introducing external state management. You
+    identify the lowest common ancestor, colocate the state there, and distribute both
+    the value and a setter callback via props. The trade-off is that it can lead to prop
+    drilling in deeper trees, but for localized shared state (a form with interdependent
+    fields, a filter that affects a list), it is the simplest and most debuggable approach.
+    You should resist lifting state higher than necessary, because every component
+    between the owner and the consumer re-renders when that state changes unless
+    you optimize with React.memo.
+
+## Question 23:
+    Why does React enforce unidirectional data flow?
+    
+    Beginner Answer: Data moves only from parent to child through props. This makes
+    it easier to understand where data comes from and how it changes.
+
+    Experienced Answer: Unidirectional data flow means the UI is a pure function of
+    state: given the same state, you always get the same rendered output. This
+    eliminates an entire class of bugs that two-way binding frameworks suffered from,
+    where multiple sources could mutate the same model and the UI would become
+    inconsistent. In React, if something looks wrong on screen, you trace the props
+    backward to find which state is incorrect. It also makes the component tree
+    predictable for React's reconciliation algorithm. Events travel "up" via callbacks (not
+    data binding), so there is a single, auditable path for every state change: user event,
+    callback invocation, setState, re-render.
+
+## Question 24:
+    What is prop drilling and when does it become a problem?
+    
+    Beginner Answer: Prop drilling is when you pass props through many layers of
+    components just so a deeply nested child can use them. It becomes messy when
+    there are too many layers.
+    
+    Experienced Answer: Prop drilling is structurally correct. It is not an anti-pattern
+    by itself. It becomes a maintenance problem when intermediate components have
+    no use for the props they forward, because any change to the prop shape forces edits
+    across every layer. The threshold varies, but beyond 3-4 levels, the signal-to-noise
+    ratio drops. The standard React solution is Context API (or external stores for global
+    state). A useful middle ground is component composition: instead of passing data
+    through wrappers, you pass entire pre-built child components (via children or
+    render props), so intermediate layers never touch the data at all.
+
+## Question 25:
+    What does useEffect do and when does it run?
+    
+    Beginner Answer: useEffect runs code after the component renders. You use it
+    for things like fetching data or setting timers. The dependency array controls when
+    it runs again.
+    
+    Experienced Answer: useEffect is React's escape hatch for synchronizing your
+    component with external systems, anything outside React's render cycle (DOM APIs,
+    network, timers, third-party libraries). It runs after paint, meaning the browser has
+    already updated the screen, so it does not block the visual update. The dependency
+    array is a list of reactive values the effect reads. React shallow-compares each value
+    on every render. If nothing changed, the effect is skipped. Omitting the array entirely
+    causes it to fire on every render, which is almost never intentional. A common
+    mistake is treating useEffect as a "lifecycle method." It is not
+    componentDidMount. It is a synchronization mechanism: "keep this side effect in
+    sync with these values."
+
+## Question 26:
+    What happens if you skip the dependency array in useEffect?
+    
+    Beginner Answer: The effect runs after every single render. This can cause
+    performance issues if the effect does expensive work like fetching data.
+    
+    Experienced Answer: Without a dependency array, React treats every render as a
+    trigger. This means if the effect itself causes a state update, you get an infinite loop:
+    render, effect, setState, render, effect, setState, and so on. Even without a state
+    update inside, the effect runs after prop changes, parent re-renders, and any context
+    updates. In practice, the only legitimate use case is debugging (logging every render)
+    or integrating with a library that needs to run after every paint. For everything else,
+    the absence of a dependency array is a code smell that suggests the developer has
+    not thought about when the effect should actually re-synchronize.
+
+## Question 27:
+    Why should you never mutate state directly in React?
+    
+    Beginner Answer: React does not detect direct mutations. You need to call
+    setState with a new value so React knows to re-render the component.
+    
+    Experienced Answer: React uses referential equality (Object.is) to decide
+    whether state has changed. If you mutate an object or array in place, the reference
+    stays the same, so React skips the re-render entirely. Your data changes silently but
+    the UI stays stale. Beyond rendering, direct mutation breaks time-travel debugging,
+    React DevTools inspection, and any memoization (React.memo, useMemo) that
+    depends on reference checks. The correct pattern is to produce a new reference via
+    spread syntax or array methods like map, filter, and concat. This is why you see
+    setItems([...items, newItem]) instead of items.push(newItem).
+    // WRONG
+    const handleAdd = (product) => {
+    cart.push(product); // same reference, React ignores it
+    setCart(cart);
+    };
+    // RIGHT
+    const handleAdd = (product) => {
+    setCart((prev) => [...prev, product]); // new array, new reference
+    };
+
+## Question 28:
+    What is client-side routing, and how does it differ from traditional server-side routing?
+    
+    Beginner Answer: In server-side routing, every link click sends a request to the server,
+    which returns a new HTML page. In client-side routing, the browser loads one HTML file,
+    and JavaScript (React Router) swaps components based on the URL without making server
+    requests. This makes navigation faster because the page does not reload.
+    
+    Experienced Answer: Server-side routing is document-centric: each URL maps to a
+    physical file or server handler that returns a complete HTML document. The browser
+    discards the current DOM, JavaScript state, and all in-memory data, then rebuilds everything
+    from scratch. Client-side routing, implemented by libraries like React Router, operates
+    within a single HTML document. It uses the History API (pushState, replaceState,
+    popstate event) to update the address bar without triggering a server request. React
+    Router intercepts navigation events, matches the new URL against declared routes, and tells
+    React to swap the relevant component subtree. Everything outside the swap point (NavBar,
+    Footer, global state, WebSocket connections) persists. The tradeoffs are real though:
+    client-side routing requires the entire JavaScript bundle (or at least the initial chunk) to
+    download before any page renders, which can hurt first-load performance. Server-side
+    routing delivers usable HTML immediately. This is why modern frameworks like Next.js
+    combine both: server-side rendering for the first load, then client-side routing for
+    subsequent navigations.
+
+## Question 29:
+    What is the purpose of the Outlet component in React Router, and how does a layout
+    route work?
+    
+    Beginner Answer: Outlet is a placeholder inside a layout component. React Router fills it
+    with whichever page matches the current URL. A layout route is a Route with no path that
+    wraps child routes, so they all share the same NavBar, Footer, and other layout elements.
+    
+    Experienced Answer: Outlet is React Router's composition mechanism for nested routing.
+    A layout route (a Route with an element but no path) acts as a wrapper. Its child routes
+    inherit the layout, and Outlet marks the insertion point where the matched child renders.
+    This solves a real architectural problem: without layout routes, every page component
+    would need to import and render the NavBar and Footer individually. That creates
+    duplication and, more critically, causes those layout components to unmount and remount
+    on every navigation, resetting any internal state they hold (scroll position, animation state,
+    open/closed menus). With Outlet, the layout components mount once and persist. Only the
+    content inside Outlet swaps. Layout routes can also be nested. A dashboard section might
+    have its own layout route with a sidebar, nested inside the root layout route that provides
+    the NavBar. Each level has its own Outlet, and React Router resolves the nesting
+    automatically. This composability is one of React Router v6's most powerful features.
+
+## Question 30:
+    Why create a centralized Axios instance instead of calling axios.get() directly in
+    components?
+    
+    Beginner Answer: A centralized instance stores the base URL and API key in one place, so
+    you do not repeat them in every component. If the API key or URL changes, you update one
+    file instead of searching through the entire codebase.
+    
+    Experienced Answer: A centralized Axios instance provides three layers of value. First,
+    configuration DRY-ness: baseURL, default headers, query parameters, and timeout settings
+    are declared once. Second, behavioral DRY-ness via interceptors: response unwrapping,
+    error normalization, token injection, retry logic, and logging all live in one place and apply
+    uniformly to every request. Third, testability and swappability: in tests, you mock the single
+    api instance rather than mocking the global axios object or intercepting network calls. In
+    production, if you migrate from Axios to fetch or a GraphQL client, you change the
+    implementation inside api.js and movieService.js while every component's calling
+    code remains untouched. The service layer pattern takes this further by giving components
+    named, semantic methods (movieService.getPopular()) instead of raw HTTP calls
+    (api.get("/movie/popular")). Components express intent ("get popular movies"), not
+    implementation ("make a GET request to this URL with these params"). This separation of
+    concerns is the same principle behind APIs in backend development, just applied within the
+    frontend.
+
+## Question 31:
+    What is React.lazy and why must it be paired with Suspense?
+    
+    Beginner Answer: React.lazy lets you load a component only when it is needed instead
+    of including it in the main bundle. Suspense is required because while the component's
+    code is downloading, React needs something to show the user. Suspense provides that
+    fallback UI.
+    
+    Experienced Answer: React.lazy wraps a dynamic import() call and returns a special
+    component that React can render. When React encounters a lazy component for the first
+    time, the import() Promise is triggered, and the component's code is fetched as a separate
+    JavaScript chunk. During this async gap, React has nothing to render for that part of the tree.
+    It "suspends" rendering and walks up the component tree looking for the nearest Suspense
+    boundary. If it finds one, it renders the fallback prop. If it does not find one, it throws an
+    error. This is not optional. Behind the scenes, this uses the same suspension mechanism that
+    React's concurrent features rely on. The lazy component throws a Promise (literally), and
+    Suspense catches it, renders the fallback, and re-renders with the real component once the
+    Promise resolves. The practical benefit is code splitting: instead of one massive bundle,
+    Vite/Webpack produces separate chunks per lazy boundary. The browser downloads only
+    what the user needs. For route-level splitting, this means visiting / downloads the home
+    page chunk, and the watchlist chunk is not fetched until the user navigates to /watchlist.
+    Running npm run build and inspecting the output confirms this, with each lazy-loaded
+    page appearing as its own file.
+
+## Question 32:
+    Explain the sticky top-0 z-50 pattern on the NavBar. What would break if you removed
+    any one of these three classes?
+    
+    Beginner Answer: sticky makes the NavBar stick to the top when you scroll. top-0 tells it
+    to stick at the very top edge. z-50 makes sure it appears above other content. Without
+    sticky, it scrolls away. Without top-0, it does not know where to stick. Without z-50,
+    other content could overlap it.
+    
+    Experienced Answer: sticky sets position: sticky, which is a hybrid of relative
+    and fixed. The element participates in normal document flow until a scroll threshold is
+    reached, at which point it becomes fixed relative to its scroll container. That threshold is
+    defined by the top property: top-0 means "become fixed when your top edge reaches the
+    viewport's top edge." Without top-0, the sticky behavior has no activation point and
+    effectively never triggers (the browser defaults top to auto, which provides no sticky
+    offset). Without sticky, the element scrolls out of view normally. z-50 (z-index: 50)
+    establishes stacking context. Without it, elements with position: relative or any
+    transform, opacity, or filter property create their own stacking contexts and can paint on top
+    of the NavBar during scrolling. Movie cards with hover:scale-110 (which applies a CSS
+    transform) are a concrete example: they would visually overlap the NavBar on hover
+    without z-50. One additional subtlety: sticky only works if the parent element's overflow
+    is visible. If any ancestor has overflow: hidden or overflow: auto, sticky positioning
+    breaks silently. This is one of the most common debugging headaches with sticky elements.
+
+## Question 33:
+    What are environment variables in a Vite project, and what does the VITE_ prefix do?
+    
+    Beginner Answer: Environment variables are values stored in a .env file outside your
+    code, like API keys and URLs. In Vite, only variables starting with VITE_ are accessible in
+    frontend code via import.meta.env. This prevents you from accidentally exposing secrets
+    that are not meant for the browser.
+    
+    Experienced Answer: Vite reads .env files at build time and statically replaces
+    import.meta.env.VITE_* references with their literal values in the output bundle. The
+    VITE_ prefix is a security boundary: only prefixed variables are injected into the client-side
+    code. Any variable without the prefix (e.g., DATABASE_URL) remains invisible to the
+    frontend, even if it exists in the same .env file. This matters because frontend code is fully
+    visible to anyone using browser dev tools. The prefix forces an explicit opt-in before any
+    value reaches the client. It is important to understand that VITE_ variables are not truly
+    secret on the client side. They are embedded as plain strings in the compiled JavaScript.
+    Someone inspecting the bundle can find them. For genuinely sensitive secrets (database
+    credentials, private API keys with write access), the correct approach is a backend proxy
+    that holds the secret and exposes a safe endpoint to the frontend. TMDB's read-only API key
+    is an acceptable candidate for a VITE_ variable because it only grants read access to public
+    movie data, but this would not be appropriate for a payment gateway secret key.

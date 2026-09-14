@@ -164,154 +164,154 @@
     
     Experienced: Both properties are axis-relative, not direction-absolute. When flex-direction changes to column, justify-content controls vertical distribution and align-items controls horizontal alignment. A common interview follow-up: what does justify-content: center do when flex-direction is column? It centres items vertically, not horizontally.
 
-## Question 26:
+## Question 25:
     What is the difference between flex-grow, flex-shrink, and flex-basis?
     
     Beginner: flex-grow controls how much an item expands into available space. flex-shrink controls how much it compresses when space is tight. flex-basis sets the starting size before growing or shrinking.
     
     Experienced: flex: 1 is shorthand for flex-grow: 1, flex-shrink: 1, flex-basis: 0%. The 0% basis means items start from zero and grow equally into available space. flex: auto expands to flex-grow: 1, flex-shrink: 1, flex-basis: auto, where items start from their content size and then grow. The difference matters when items have unequal content: flex: 1 makes them equal width, flex: auto distributes remaining space proportionally from their natural sizes.
 
-## Question 27:
+## Question 26:
     Why is Flexbox called one-dimensional?
     
     Beginner: Flexbox arranges items along one axis at a time: either a row or a column. It does not control both simultaneously.
     
     Experienced: One-dimensional means Flexbox cannot enforce alignment across multiple rows or columns at once. When items wrap with flex-wrap, each row is an independent flex line. Items in row 2 do not align with items in row 1 unless they happen to be the same size. For two-dimensional alignment (rows and columns together), CSS Grid is the right tool. Flexbox and Grid are complementary: Flexbox for single-axis component layout, Grid for two-dimensional page structure.
 
-## Question 28:
+## Question 27:
     What does flex: 1 actually mean?
     
     Beginner: It is shorthand for flex-grow: 1, flex-shrink: 1, flex-basis: 0%. It makes the item grow to fill available space, starting from zero.
     
     Experienced: The key is flex-basis: 0%. This means all items start with a base size of zero and then grow proportionally. If all items have flex: 1, they end up equal width regardless of content size. If one item has flex: 2 and another has flex: 1, the first gets twice the available space. This is different from flex: auto (basis is the content size), where larger content produces a wider final size even with equal grow values.
 
-## Question 29:
+## Question 28:
     When would you use align-self instead of align-items?
     
     Beginner: align-items applies the same cross-axis alignment to all flex items. align-self overrides that for a single item. Use align-self when one item in a group needs different alignment than the rest.
     
     Experienced: A common real-world pattern: a flex navbar where all items are vertically centred with align-items: center, but a badge or notification indicator needs to sit at the top. Setting align-self: flex-start on just the badge achieves this without changing the container rule. align-self accepts the same values as align-items plus auto, which inherits from the container.
 
-## Question 30:
+## Question 29:
     What is the difference between gap and margin for spacing flex items?
     
     Beginner: gap is applied to the container and adds space between every adjacent pair of items with no extra space at the edges. margin is applied to individual items and adds space around each item, including before the first and after the last.
     
     Experienced: gap is the preferred approach for Flexbox spacing because it is semantically correct (the container controls layout), it does not produce edge overflow, and it handles both row and column gaps when items wrap. The old margin-right pattern required a separate rule to remove the margin from the last item, or used the lobotomised owl selector (* + *). gap eliminates both workarounds. Note: gap also works in CSS Grid and between block elements in modern browsers.
 
-## Question 31:
+## Question 30:
     What is the difference between CSS Grid and Flexbox?
     
     Beginner: Flexbox is one-dimensional: it arranges items in a row or a column. Grid is two-dimensional: it arranges items in rows and columns at the same time. You use Flexbox for components like navbars and badge lists, and Grid for page-level layouts and galleries.
     
     Experienced: Flexbox distributes space along a single axis. Grid defines a coordinate system with explicit or implicit tracks in both dimensions. They are complementary: you typically use Grid for overall page structure and Flexbox for the layout within each component. Flexbox has no concept of aligning items across multiple rows because each row is independent. Grid can align items across both rows and columns, which is what makes it the right tool for grids.
 
-## Question 32:
+## Question 31:
     What is the fr unit in CSS Grid?
     
     Beginner: fr stands for fraction. It represents a proportional share of the available space in the grid container. Three columns each set to 1fr each get one-third of the container width.
     
     Experienced: The browser calculates fr values after subtracting any fixed-size tracks and gaps from the total available space. This means fr values flex with the container, making them better than percentage values in most Grid contexts because percentages do not account for gap widths. repeat(3, 1fr) is one of the most common Grid patterns in production code.
 
-## Question 33:
+## Question 32:
     What are CSS custom properties and why use them?
     
     Beginner: CSS custom properties are variables declared with a -- prefix on :root that store reusable values. You reference them with var(). Changing the value in one place updates every reference across the stylesheet.
     
     Experienced: CSS custom properties are resolved at runtime in the browser, unlike Sass variables which compile away before the browser sees them. This means they can be changed dynamically with JavaScript, scoped to specific components, and overridden inside media queries. They are the foundation of design token systems and CSS-based theming, including dark mode implementations.
 
-## Question 34:
+## Question 33:
     What is BEM and why do teams use it?
     
     Beginner: BEM stands for Block, Element, Modifier. It is a CSS naming convention where every class name includes the component it belongs to (block), the part it represents (element after __), and any variation (modifier after --). It prevents naming collisions and makes classes self-documenting.
     
     Experienced: Without a naming system, CSS class names become ambiguous as a project grows. Generic names like .title or .active can refer to dozens of unrelated things. BEM eliminates ambiguity: .project-card__title tells you immediately which component, which part. It also prevents accidental style leaking between components, since each component's elements are namespaced under the block name.
 
-## Question 35:
+## Question 34:
     What is the difference between implicit and explicit grid rows?
     
     Beginner: Explicit rows are defined by the developer using grid-template-rows. Implicit rows are created automatically by the browser when more items exist than the defined grid structure can hold.
     
     Experienced: For most page layouts, you define columns explicitly with grid-template-columns and let rows be implicit. The browser creates new rows as needed, sizing them to fit their content by default. You can control the size of implicit rows using the grid-auto-rows property, for example grid-auto-rows: 200px makes all auto-created rows a fixed height. This is important for dashboards and galleries where row consistency matters.
 
-## Question 36:
+## Question 35:
     What is grid-template-areas and when would you use it?
     
     Beginner: grid-template-areas lets you define a page layout as a text map. You name regions in a quoted string pattern where each word is a column and each quoted line is a row. Child elements connect to their region using grid-area.
     
     Experienced: grid-template-areas is most useful for page-level layouts with named, distinctly sized regions: header, sidebar, main content, footer. For identical repeating items like a card gallery, auto-placement with repeat() is simpler. The real power of grid-template-areas appears in responsive design, where different area maps are defined for different screen sizes inside media queries, rearranging the entire page layout without touching any child element's CSS.
 
-## Question 37:
+## Question 36:
     What is the viewport meta tag and why does it matter for responsive design?
     
     Beginner answer:  It tells mobile browsers to use the device's actual width as the viewport, rather than pretending the page is ~980px wide. Without it, media queries fire at wrong breakpoints and the page looks like a shrunken desktop site on phones.
     
     Experienced answer:  Mobile browsers historically used a "virtual viewport" (usually 980px) to render desktop-era sites, then scaled them down. The viewport meta tag disables this by setting the layout viewport to device-width. initial-scale=1.0 prevents the initial zoom. The distinction matters because CSS media queries evaluate against the layout viewport, not the physical screen pixels. On a high-density display like an iPhone with 3x pixel ratio, device-width still reports in CSS pixels (390 CSS px on iPhone 14), not physical pixels (1170 physical px).
 
-## Question 38:
+## Question 37:
     What is the difference between px, rem, em, and vw? When would you use each?
     
     Beginner answer:  px is absolute. rem is relative to the root font size (16px default). em is relative to the current element's font size. vw is 1% of the viewport width. Use px for borders, rem for font sizes and spacing, vw for full-width or hero elements.
     
     Experienced answer:  em is inherited from the current element, which creates compounding: if a parent has font-size: 1.25em and a child also has 1.25em, the child ends up at 1.25 x 1.25 = 1.5625em of the root. rem avoids this by always referencing the html element. For accessibility, px font sizes prevent browser zoom from working properly because most browsers implement zoom by scaling the root font size, not by multiplying px values. rem values inherit the zoom; px values do not. This is why WCAG recommends rem or em for font sizes.
 
-## Question 39:
+## Question 38:
     What is the difference between mobile-first and desktop-first responsive design?
     
     Beginner answer:  Desktop-first writes base CSS for large screens and uses max-width media queries to handle smaller screens. Mobile-first writes base CSS for small screens and uses min-width media queries to add complexity for larger screens.
     
     Experienced answer:  Mobile-first is preferred in production for three reasons. First, progressive enhancement: if media queries fail, users get a usable mobile layout rather than a broken desktop layout. Second, performance: mobile devices are often on slower connections. Base CSS is the smallest and simplest stylesheet; extra styles only load for devices that can handle them. Third, specificity: adding rules for larger screens (min-width) is generally cleaner than overriding rules for smaller screens (max-width). The mental model shift is: start with constraints, then add possibilities.
 
-## Question 40:
+## Question 39:
     Why does the order of media queries matter in a stylesheet?
     
     Beginner answer:  CSS uses source order to resolve conflicts when specificity is equal. A base rule that appears after a media query will always override the media query, even when the media query is active. Media queries must go at the end of the stylesheet.
     
     Experienced answer:  This is a manifestation of the CSS cascade. Specificity is evaluated first. When two rules have equal specificity, the one that appears later in the source wins. A media query does not increase a selector's specificity; it is a conditional wrapper around a normal rule. So @media (max-width: 768px) { .grid { columns: 1 } } followed by .grid { columns: 3 } will always produce 3 columns, because the non-conditional rule comes later. This also applies to multiple overlapping media queries: a 500px screen matches both (max-width: 1024px) and (max-width: 768px). Both blocks apply; the later one wins for any conflicting properties.
 
-## Question 41:
+## Question 40:
     What does flex-direction: column do in a media query, and why is it so commonly used for responsive design?
     
     Beginner answer:  It changes a horizontal (row) flex layout into a vertical (column) stack. On mobile, most elements that sit side by side on desktop need to stack vertically because horizontal space is limited.
     
     Experienced answer:  Flexbox's direction model is what makes it well suited to responsive design. The main axis switches from horizontal to vertical, but all other flex properties (gap, align-items, justify-content) continue to work relative to the new axis. This means a single property change restructures the entire layout. The about section, the navbar, and the nav links in Class 7 all used this pattern. The cascading effect of axis change also means that align-items: center (which centered items vertically in row mode) now centers them horizontally in column mode, often achieving the desired centered-stack layout with no additional rules.
 
-## Question 42:
+## Question 41:
     What is the img { max-width: 100%; height: auto; } rule and why is it applied globally?
     
     Beginner answer:  It prevents images from overflowing their parent container. max-width: 100% means an image can never be wider than its parent. height: auto preserves the aspect ratio when the width changes.
     
     Experienced answer:  Images have natural dimensions defined by their source file. Without constraints, an image with a natural width of 1200px renders at 1200px regardless of its container width, causing horizontal overflow. max-width: 100% resolves this at any container size. height: auto is critical because if width shrinks and height stays fixed, the image distorts. The global selector applies this to all images in the document, providing a safe default that individual components can override if needed. This rule is typically placed early in the stylesheet as a global reset. It is part of most CSS resets and normalizers precisely because it solves such a ubiquitous responsive bug.
 
-## Question 43:
+## Question 42:
     What is CSS specificity and how is it calculated?
     
     Beginner: Specificity is how the browser decides which rule wins when several rules target the same property on the same element. Scoring goes: inline styles strongest, then IDs, then classes (including pseudo-classes and attributes), then elements. Ties break by source order (last one wins).
     
     Experienced: A four-tier weighting system written as (inline, IDs, classes, elements). Tiers are non-overflowing: 100 element selectors never outweigh a single class. Combinators and * contribute zero. The architectural strategy is keeping all selectors at a similar low specificity (single classes) so cascade order becomes the predictable tiebreaker. IDs force escalation. !important creates its own tier above inline styles, but the same comparison applies inside it, so it solves nothing structurally.
 
-## Question 44:
+## Question 43:
     What is the difference between the descendant selector and the child selector?
     
     Beginner: Descendant (space) matches at any depth. .card p matches a p whether it is a direct child or deeply nested. Child (>) matches only direct children, one level deep.
     
     Experienced: Descendant traverses the entire subtree, flexible but prone to unintended matches as components grow. Child restricts to one level, providing encapsulation. In BEM, CSS Modules, or scoped styles, the child combinator prevents parent styles from leaking into nested sub-components. The tradeoff is brittleness: adding a wrapper div breaks >. Choose based on whether encapsulation or structural flexibility matters more.
 
-## Question 45:
+## Question 44:
     Why should you avoid !important?
     
     Beginner: It overrides everything, which makes it very hard to override later. If two rules use it, you are back to specificity comparison anyway, except now everything needs !important to compete. Hard to maintain.
     
     Experienced: It breaks the natural cascade by elevating a declaration above the tier system. Once one declaration uses it, competitors must too, creating an order-dependent arms race. Legitimate uses: utility classes in a design system (.hidden { display: none !important; }) and overriding third-party CSS you cannot edit. In your own codebase, needing !important is a code smell pointing to a specificity architecture problem to be fixed by flattening selectors, not escalating them.
 
-## Question 46:
+## Question 45:
     Which CSS properties inherit, and why does it matter?
     
     Beginner: Text properties (font-family, color, line-height) inherit. Layout properties (margin, padding, border) do not. This lets you set typography once on body and have every element use it unless overridden.
     
     Experienced: Inheritance follows the DOM tree and applies to properties where per-element repetition would be impractical. Non-inheriting properties are those where inheritance would cause chaos (every child copying its parent's border). Practically, inheritance is the first cascade layer to leverage: a well-structured body rule removes dozens of redundant declarations. The classic pitfall is links: the user-agent stylesheet sets an explicit color on a, beating inheritance because an explicit rule always wins.
 
-## Question 47:
+## Question 46:
     Where should the transition property go, and why?
     
     Beginner: On the base state, not on :hover. That way the animation plays both on hover-in and hover-out. On :hover only, it animates in but snaps back instantly.
@@ -319,7 +319,7 @@
     Experienced: Placing transition on the base state ensures bidirectional animation because the definition persists in both states. On :hover, the definition vanishes the 
     moment the cursor leaves, so the browser has no instructions for the return trip. There is a deliberate use case: a longer transition on :hover and a shorter one on the base state creates an asymmetric effect (eases in slowly, snaps back quickly). For standard UI, base state, named properties (never all), 150ms to 400ms.
 
-## Question 48:
+## Question 47:
     What is the difference between :hover and :focus? Can both be active at once?
     
     Beginner: :hover is about the mouse pointer being over an element. :focus is about keyboard focus (or clicking into an input). Yes, both can be active at once: if you click a button, it is both hovered and focused, and styles stack.
