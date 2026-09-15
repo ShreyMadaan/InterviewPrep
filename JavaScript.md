@@ -799,7 +799,7 @@
     state, but in vanilla JS and jQuery codebases, data-* attributes remain the standard way to
     tie DOM elements to application data.
 
-## Question 50:
+## Question 56:
     Q6: What is a guard clause, and why is it preferred over nested if/else?
 
     Beginner Answer: A guard clause checks for an invalid or edge-case condition at the top of
@@ -819,3 +819,593 @@
     branches (not "valid vs. invalid"), where an if/else block better communicates the
     symmetric structure.
 
+## Question 57:
+    What is the difference between document.createElement() and innerHTML?
+    
+    Beginner Answer: createElement() creates a single new element in memory that you
+    then attach to the page with appendChild(). innerHTML lets you write an HTML string
+    that the browser parses and renders. createElement is safer because it does not execute
+    scripts hidden in user input.
+
+    Experienced Answer: createElement() returns a live Element node that exists in
+    memory but is detached from the DOM until explicitly appended. Because you set properties
+    like textContent programmatically, there is no parsing step and no XSS vector. innerHTML,
+    by contrast, triggers the browser's HTML parser. Setting container.innerHTML +=
+    newMarkup re-parses the entire container, which has two critical side effects: first, all event
+    listeners on existing children are destroyed because the old nodes are replaced by freshly
+    parsed copies; second, any <script> tags or event handler attributes (e.g., onerror) in the
+    string will execute. insertAdjacentHTML('beforeend', markup) is a safer middle
+    ground, since it only parses and inserts the new fragment without touching existing
+    children. In production, the rule is: createElement for anything involving user data,
+    insertAdjacentHTML for trusted templates where brevity matters, and raw innerHTML
+    assignment only for full container replacement where no listeners need preservation.
+
+## Question 58:
+    Why maintain a separate data array when the data is already in the DOM?
+    
+    Beginner Answer: The data array makes it easier to search, filter, and manage tickets using
+    JavaScript array methods. It also keeps the code organized because you have a single place
+    where all ticket data lives.
+    
+    Experienced Answer: The DOM is a rendering layer, not a data store. Reading data from the
+    DOM requires traversing nodes and parsing attribute strings, which is both slow and fragile
+    (any CSS or structural change can break the selectors). A JavaScript array gives you $O(n)$
+    or better access patterns via find, filter, and map, with no DOM dependency. More
+    importantly, the array establishes a single source of truth. If the array and the DOM ever
+    disagree, the array wins, and you re-render the DOM from the array (not the reverse). This
+    principle is the backbone of every modern UI framework: React's state, Vue's data,
+    Angular's component properties. These frameworks automate the "sync DOM to data" step,
+    but the mental model is identical. In fullstack applications, the data array also becomes the
+    payload you send to an API or serialise into localStorage. If your only data source is the
+    DOM, you must scrape it back into structured objects before saving, which is error-prone
+    and couples your persistence logic to your HTML structure.
+
+## Question 59:
+    Explain closest() and when you would use it.
+    
+    Beginner Answer: closest() is a DOM method that starts at the current element and
+    walks up through its ancestors, returning the first one that matches the given CSS selector. If
+    no match is found, it returns null. You use it in event delegation to find the relevant parent
+    element when the user clicks a nested child.
+    
+    Experienced Answer: closest(selector) performs an upward DOM traversal from the
+    calling element (inclusive) through the ancestor chain, returning the first element matching
+    the CSS selector, or null if none is found. It is the complement of querySelector, which
+    searches downward. The primary use case is event delegation on composite components.
+    Consider a card with an icon inside a button inside a footer inside the card. A click on the
+    icon reports event.target as the <i> tag, but your logic needs the card.
+    event.target.closest('.card') reliably retrieves it regardless of nesting depth.
+    Without closest(), you would need brittle chains like
+    event.target.parentElement.parentElement, which break the moment someone
+    adds or removes a wrapper <div>. closest() is also useful outside event delegation. For
+    instance, form validation libraries use input.closest('.form-group') to find the
+    nearest container for injecting error messages, decoupling the validation logic from the
+    exact DOM structure.
+
+## Question 60:
+    How does filter() work, and does it modify the original array?
+    
+    Beginner Answer: filter() loops through an array and runs a test function on each
+    element. Elements that pass the test (the function returns true) are included in a new array.
+    Elements that fail are excluded. The original array is not changed.
+    
+    Experienced Answer: filter() is a higher-order function on Array.prototype that
+    accepts a callback and returns a new array containing only the elements for which the
+    callback returned a truthy value. It does not mutate the original array, which makes it safe to
+    use in contexts where multiple parts of the code hold references to the same array. This
+    immutability is why you see the reassignment pattern: arr = arr.filter(...). The old
+    array becomes eligible for garbage collection once no references point to it.
+    Performance-wise, filter() is $O(n)$: it visits every element exactly once. For large
+    datasets (tens of thousands of items), this is acceptable. If you need to remove a single
+    known element and performance is critical, splice() (which mutates in place) or finding
+    the index with findIndex() and then splicing is more efficient, but the readability cost is
+    higher. In interview settings, mentioning that filter is non-mutating, returns a new array,
+    and is $O(n)$ covers the three things interviewers are listening for.
+
+## Question 61:
+    What is XSS, and how did the Kanban board prevent it?
+    
+    Beginner Answer: XSS (Cross-Site Scripting) is an attack where malicious code is injected
+    into a web page. The Kanban board prevented it by using textContent instead of
+    innerHTML for user-provided text. textContent treats everything as plain text and does
+    not execute HTML or scripts.
+    
+    Experienced Answer: XSS is a class of injection vulnerabilities where an attacker causes a
+    victim's browser to execute untrusted scripts in the context of a trusted page. DOM-based
+    XSS (the variant relevant here) occurs when client-side JavaScript writes user-controlled
+    data into the DOM via an unsafe sink like innerHTML, document.write, or outerHTML. The
+    Kanban board mitigates this by using textContent, which sets the text node's value
+    directly without invoking the HTML parser. Even if the user types
+    <script>alert(1)</script>, the browser renders it as a visible string of characters, not
+    as executable code. In a fullstack context, prevention extends to the server: output encoding
+    (escaping <, >, &, ", ' before rendering), Content-Security-Policy headers (restricting which
+    scripts can execute), and input validation (rejecting or sanitising suspicious patterns before
+    storage). Defence in depth, applying multiple layers of protection, is the industry standard
+    because any single layer can have gaps.
+
+## Question 62:
+    When is it acceptable to use inline styles in JavaScript?
+    
+    Beginner Answer: Inline styles are acceptable when the value is truly dynamic and comes
+    from JavaScript at runtime. For example, setting a backgroundColor based on user
+    selection cannot be done with a static CSS class because the color value is not known in
+    advance.
+    
+    Experienced Answer: Inline styles are appropriate when a style property's value is
+    computed at runtime and cannot be represented by a finite, predefined set of CSS classes.
+    The Kanban ticket's color band is a textbook example: the user can select any of four colors,
+    and that value flows from a data-color attribute through JavaScript into
+    element.style.backgroundColor. Creating four classes (.color-red, .color-blue,
+    etc.) works at small scale but breaks when the palette expands or becomes
+    user-configurable. The alternative, CSS custom properties (variables), offers a middle path:
+    set element.style.setProperty('--band-color', selectedColor) in JS and
+    reference var(--band-color) in CSS. This keeps the stylesheet as the single owner of how
+    the color is applied (opacity, gradients, transitions) while JavaScript only controls the value.
+    In framework-based projects, this tension is managed by scoped styles (Vue), CSS-in-JS
+    (styled-components in React), or utility classes (Tailwind). Regardless of the approach, the
+    principle remains: keep static styles in CSS, and use JavaScript only for values that genuinely
+    vary at runtime.
+
+## Question 63:
+    What is contenteditable, and how does it differ from an <input> element?
+    
+    Beginner Answer: contenteditable is an HTML attribute that makes any element
+    editable when set to "true". Unlike <input>, which is a dedicated form element,
+    contenteditable can be applied to a <div>, <p>, or any other element. The user can click
+    and type directly into it.
+    
+    Experienced Answer: contenteditable turns a block-level or inline element into a
+    rich-text editor. The browser handles cursor placement, text selection, and even basic
+    formatting (bold, italic) via keyboard shortcuts. This is fundamentally different from
+    <input> and <textarea>, which produce plain-text values accessible through the .value
+    property. With contenteditable, the content is part of the DOM tree, accessed via
+    .textContent (plain text) or .innerHTML (with formatting tags). The key trade-off is
+    control: <input> gives you clean string values, native form submission, and built-in
+    validation attributes (required, maxlength, pattern). contenteditable gives you
+    inline, styled editing with no form integration. In production, contenteditable is the
+    foundation of rich-text editors like Notion, Google Docs (partially), and libraries like Quill
+    and ProseMirror, but they layer complex input handling on top because the raw
+    contenteditable API has notorious cross-browser inconsistencies in how it generates
+    HTML during formatting operations.
+
+## Question 64:
+    Explain localStorage. What are its limitations?
+    
+    Beginner Answer: localStorage is a browser API that lets you store key-value pairs as
+    strings. Data persists even after closing the browser. You use setItem to save and getItem
+    to retrieve. The main limitation is that it only stores strings, so you need JSON.stringify
+    and JSON.parse for objects and arrays.
+    
+    Experienced Answer: localStorage provides synchronous, same-origin, persistent
+    storage with a typical limit of 5 to 10 MB per origin (varies by browser). Five key limitations
+    make it unsuitable for many production scenarios. First, it is synchronous: reads and writes
+    block the main thread, which can cause jank if you are serialising large datasets. Second, it
+    has no built-in expiration mechanism (unlike cookies). Third, it has no query capability; you
+    can only retrieve by exact key, not search or filter stored data. Fourth, it is vulnerable to XSS:
+    any JavaScript running on the page can read all localStorage values, so storing sensitive
+    tokens there is a security risk (HttpOnly cookies are preferred for auth tokens). Fifth, it is
+    not available in Web Workers or Service Workers (though indexedDB is). For the Kanban
+    board's use case (small, non-sensitive, client-only data), localStorage is a perfect fit. For
+    larger or more complex data, indexedDB offers asynchronous, transactional, structured
+    storage. For data that needs to survive across devices, a server-side database is the answer.
+
+## Question 65:
+    What is JSON, and what happens during stringify and parse?
+    
+    Beginner Answer: JSON (JavaScript Object Notation) is a text format for representing data
+    as strings. JSON.stringify() converts a JavaScript object or array into a JSON string.
+    JSON.parse() converts a JSON string back into a JavaScript object or array. This is how you
+    store structured data in localStorage, which only accepts strings.
+    
+    Experienced Answer: JSON is a language-independent data interchange format defined by
+    RFC 8259. It supports six types: string, number, boolean, null, object, and array.
+    JSON.stringify performs a recursive traversal of the input value, converting each
+    property to its JSON representation. Properties with undefined, function, or Symbol values
+    are silently omitted (in objects) or converted to null (in arrays). Date objects are converted
+    via their .toISOString() method, producing a string that JSON.parse will not
+    automatically convert back to a Date. stringify accepts two optional arguments: a
+    replacer (function or array that filters/transforms properties) and a spacer (number or
+    string for pretty-printing). JSON.parse accepts an optional reviver function that can
+    transform values during parsing, commonly used to rehydrate Date strings back into Date
+    objects. Both methods throw on invalid input: stringify throws on circular references,
+    parse throws on malformed JSON strings. In fullstack contexts, JSON is the default wire
+    format for REST APIs, and understanding its serialisation rules is essential for debugging
+    mismatches between client-sent data and server-received data.
+
+## Question 66:
+    Why is JavaScript called single-threaded, and how does it handle asynchronous operations?
+    
+    Beginner Answer: JavaScript has only one Call Stack, so it can execute one function at a
+    time. For async operations like timers or file reads, it hands them off to the browser or
+    Node.js runtime. When the operation finishes, the callback goes into a queue, and the Event
+    Loop pushes it onto the Call Stack when it is empty.
+    
+    Experienced Answer: JavaScript's single thread refers specifically to its execution context:
+    one Call Stack, one thread of execution. However, the runtime environment (V8 plus libuv in
+    Node.js, or V8 plus browser APIs) is multi-threaded. When JavaScript encounters an async
+    operation, it delegates to these external threads. The result is placed into the Callback Queue
+    (also called the Task Queue). The Event Loop continuously checks whether the Call Stack is
+    empty, and only then dequeues the next callback. This architecture means JavaScript never
+    blocks on I/O, which is why Node.js can handle thousands of concurrent connections on a
+    single thread, something that thread-per-request models like traditional Java servers
+    achieve only with significantly higher memory overhead.
+
+## Question 67:
+    What is the Event Loop, and what are its components?
+    
+    Beginner Answer: The Event Loop is a mechanism that checks if the Call Stack is empty. If it
+    is, it picks the next callback from the Callback Queue and pushes it to the Call Stack. The
+    main components are the Call Stack, the Web/Node APIs, and the Callback Queue.
+    
+    Experienced Answer: The Event Loop is the coordination layer between JavaScript's
+    single-threaded execution and the runtime's async capabilities. Its components are: the Call
+    Stack (where synchronous code executes), the Web APIs or Node APIs (where async
+    operations are handled externally), the Callback Queue or Task Queue (where completed
+    callbacks wait), and the Event Loop itself (the check mechanism). In Node.js, the Event Loop
+    has distinct phases: timers, pending callbacks, idle/prepare, poll, check, and close. Each
+    phase has its own queue. This phased design is why the ordering between setTimeout,
+    setImmediate, and I/O callbacks follows specific rules rather than being purely
+    first-in-first-out.
+
+## Question 68:
+    What will the output be? (setTimeout 0ms puzzle)
+    console.log("A");
+    setTimeout(function () { console.log("B"); }, 0);
+    console.log("C");
+    
+    Beginner Answer: The output is A, C, B. Even though the timeout is 0ms, the callback is
+    placed in the queue and must wait for the Call Stack to finish executing the remaining
+    synchronous code.
+    
+    Experienced Answer: The output is A, C, B. setTimeout(fn, 0) does not mean "execute
+    immediately." It means "schedule this callback with a minimum delay of 0ms." The callback
+    is handed to the timer API, which resolves almost instantly and places the callback in the
+    Task Queue. However, the Event Loop will not dequeue it until the current execution context
+    is complete. Since console.log("C") is still on the Call Stack, it runs first. In practice, even
+    setTimeout(fn, 0) has a minimum delay of approximately 4ms in browsers (per the
+    HTML spec) due to clamping. In performance-sensitive scenarios, this clamping matters
+    when comparing it to alternatives like postMessage or requestAnimationFrame.
+
+## Question 69:
+    What is the difference between fs.readFileSync and fs.readFile?
+    
+    Beginner Answer: fs.readFileSync blocks the Call Stack until the file is fully read and
+    returns the contents directly. fs.readFile is non-blocking. It starts the read and moves on.
+    The file contents arrive later through a callback.
+    
+    Experienced Answer: fs.readFileSync is a blocking call that halts the entire Node.js
+    process until the OS completes the read. It returns the data directly, and errors must be
+    caught with try/catch. fs.readFile delegates to libuv's thread pool, which performs the
+    actual I/O on a separate thread. When done, the callback is queued. In a server context,
+    using readFileSync inside a request handler means every concurrent user waits for that
+    single file read to finish, effectively serializing all requests. readFile avoids this by freeing
+    the Event Loop immediately. The only appropriate use of readFileSync is during
+    application startup (loading config files, certificates) before the server begins accepting
+    connections.
+
+## Question 70:
+    What is the difference between concurrent and serial async execution?
+    
+    Beginner Answer: Concurrent means you fire multiple async operations at the same time
+    and they complete independently. Serial means you wait for one to finish before starting the
+    next. Concurrent is faster but you cannot control the order. Serial is slower but guarantees
+    order.
+    
+    Experienced Answer: Concurrent execution dispatches multiple async operations without
+    waiting for any to complete. The callbacks fire in completion order, which is
+    non-deterministic and depends on factors like file size, network latency, or OS scheduling.
+    Serial execution chains operations so each one begins inside the callback of the previous
+    one, guaranteeing order. The tradeoff is real: if three file reads each take 100ms, concurrent
+    execution finishes in roughly 100ms (they overlap), while serial execution takes roughly
+    300ms (they are sequential). The choice depends on whether there is a data dependency
+    between operations. Independent operations should always be concurrent. Dependent
+    operations must be serial.
+
+## Question 71:
+    What is Callback Hell, and why is it a problem?
+    
+    Beginner Answer: Callback Hell happens when you nest many async callbacks inside each
+    other to run them in order. The code becomes deeply indented and hard to read. It is also
+    called the Pyramid of Doom.
+    
+    Experienced Answer: Callback Hell is a structural consequence of implementing sequential
+    async logic using nested callbacks. Each level of nesting adds indentation, duplicates error
+    handling, and makes the control flow harder to trace. But the deeper problem is not
+    cosmetic. It makes the code resistant to modification. Inserting a new step in the middle of a
+    chain requires re-indenting everything below it. Extracting a step into a reusable function is
+    difficult because each callback captures variables from its parent scope through closures.
+    Error handling is especially fragile: forgetting a single if (err) return at any level causes
+    the chain to continue with undefined data, producing bugs that are silent and hard to trace.
+    This is why Promises were introduced to the language, they flatten the nesting into a linear
+    chain with centralized error handling.
+
+## Question 72:
+    What is a Promise and why does JavaScript need it?
+    
+    Beginner Answer: A Promise is an object that represents a value that is not available yet
+    but will be available in the future. JavaScript needs it because callbacks create deeply nested,
+    hard-to-read code when multiple async operations depend on each other.
+    
+    Experienced Answer: A Promise is a stateful object that encapsulates the eventual
+    completion or failure of an asynchronous operation. It solves three distinct problems with
+    raw callbacks. First, readability: chaining replaces rightward nesting with a flat,
+    top-to-bottom flow. Second, error propagation: a single .catch() can handle errors from
+    any point in a chain, whereas callbacks require error checks at every nesting level. Third,
+    composition: utility methods like Promise.all() and Promise.race() provide
+    standardized patterns for concurrent operations that would require complex manual
+    coordination with callbacks.
+
+## Question 73:
+    What are the three states of a Promise?
+    
+    Beginner Answer: Pending (initial state, not yet settled), fulfilled (resolved successfully
+    with a value), and rejected (failed with a reason). A Promise can only transition from
+    pending to one of the other two, and that transition is permanent.
+    
+    Experienced Answer: The three states are pending, fulfilled, and rejected. The critical
+    design constraint is that a Promise is settled exactly once. Calling resolve() after
+    reject() (or vice versa) in the same executor has no effect. This immutability guarantee is
+    what makes Promises safe to pass around: any consumer can attach a .then() handler,
+    even after the Promise has already settled, and it will still receive the value. This is
+    fundamentally different from events, which are fire-and-forget and cannot be "replayed" for
+    late listeners.
+
+## Question 74:
+    What is the difference between the Microtask Queue and the Callback Queue?
+    
+    Beginner Answer: The Microtask Queue has higher priority. Promise callbacks go into the
+    Microtask Queue, while setTimeout and setInterval callbacks go into the Callback
+    Queue. The Event Loop always empties the Microtask Queue before checking the Callback
+    Queue.
+    
+    Experienced Answer: The Microtask Queue (also called the Job Queue in the spec) is
+    drained completely after each task on the Call Stack finishes, before the Event Loop picks up
+    the next macrotask from the Callback Queue. This means if a microtask enqueues another
+    microtask, that new one also runs before any macrotask. In extreme cases, a recursive chain
+    of microtasks can starve the Callback Queue entirely, blocking setTimeout callbacks, I/O
+    callbacks, and even rendering. Understanding this priority is essential for debugging
+    unexpected execution order and for recognizing potential performance pitfalls in
+    Promise-heavy code.
+
+## Question 75:
+    What happens if you do not attach a .catch() to a Promise chain?
+    
+    Beginner Answer: If the Promise rejects and there is no .catch(), you get an unhandled
+    promise rejection warning. The error is essentially lost.
+    
+    Experienced Answer: An unhandled rejection triggers the unhandledrejection event in
+    browsers and a warning (or process crash, depending on the Node.js version) in Node.js.
+    This is dangerous because, unlike synchronous exceptions, unhandled rejections do not stop
+    execution of surrounding code. They fail silently from the perspective of your application
+    logic. Best practice is to always terminate a Promise chain with .catch(). In production
+    systems, a global unhandledrejection handler is often set up as a safety net, but it should
+    be a last resort, not a replacement for proper error handling in chains.
+
+## Question 76:
+    What is the difference between Promise.all() and Promise.race()?
+    
+    Beginner Answer: Promise.all() waits for all Promises to resolve and returns an array
+    of results. If any one rejects, the whole thing rejects. Promise.race() returns the result of
+    whichever Promise settles first, whether it resolves or rejects.
+    
+    Experienced Answer: Promise.all() implements an all-or-nothing pattern: it
+    short-circuits on the first rejection, but importantly, the other Promises are not cancelled
+    (JavaScript has no native Promise cancellation). They continue running; their results are
+    simply discarded. Promise.race() is useful for implementing timeout patterns: you race
+    your actual async operation against a Promise that rejects after a delay. If the timeout wins
+    the race, you treat it as a failure. One subtle point: in Promise.race(), if the first to settle is
+    a rejection, the entire race rejects, even if other Promises would have fulfilled. This is why
+    Promise.any() was added later, for cases where you want the first successful result and
+    are willing to tolerate individual failures.
+
+## Question 77:
+    Why does the Promise constructor executor run synchronously?
+    
+    Beginner Answer: When you create a new Promise, the function you pass to the
+    constructor runs immediately, not later. Only the .then() and .catch() handlers are
+    deferred.
+    
+    Experienced Answer: The executor runs synchronously because its job is to set up the
+    async operation, not to be the async operation itself. Inside the executor, you typically call
+    some async API (like a network request or a timer) and wire its completion to resolve or
+    reject. If the executor itself were deferred, you would have a chicken-and-egg problem:
+    you need the Promise to exist before you can attach handlers, but you also need the async
+    operation to start. Running the executor synchronously solves this by starting the operation
+    immediately, returning the Promise object, and letting the consumer attach handlers at their
+    leisure, knowing the settled value will be delivered whenever they attach.
+
+## Question 78:
+    Q1: What does the async keyword actually do to a function?
+    
+    Beginner Answer: The async keyword makes a function return a Promise automatically. If
+    you return a plain value like a string or number, JavaScript wraps it in Promise.resolve().
+    This lets you use .then() on the result or await it from another async function.
+    
+    Experienced Answer: The async keyword is a declaration modifier that transforms the
+    function's return semantics. Any value returned via return is implicitly wrapped in
+    Promise.resolve(), and any thrown error is wrapped in Promise.reject(). If the
+    return value is already a thenable (an object with a .then() method), the runtime
+    assimilates it rather than double-wrapping. This means async functions are fully
+    interoperable with the existing Promise API. You can call an async function and chain
+    .then() on it, or you can await it. The function itself becomes a Promise producer, which is
+    why every async function participates in the microtask queue for its resolution. One
+    practical implication: even if your function contains no await, marking it async changes its
+    return type, which can affect callers who expect a synchronous return value.
+
+## Question 79:
+    What is the output order of this code, and why?
+    console.log("A");
+    async function run() {
+    console.log("B");
+    await Promise.resolve();
+    console.log("C");
+    }
+    run();
+    console.log("D");
+    
+    Beginner Answer: The output is A, B, D, C. "A" prints first as synchronous code. Then run()
+    is called and "B" prints synchronously (it is before the await). The await pauses the
+    function, so "D" prints next. Then the microtask runs and "C" prints last.
+    
+    Experienced Answer: The output is A, B, D, C. When run() is invoked, it executes
+    synchronously up to the first await. At await Promise.resolve(), the already-resolved
+    Promise does not cause an immediate resume. Instead, the continuation (everything after
+    the await) is scheduled as a microtask. Control returns to the call site, and
+    console.log("D") executes as part of the current synchronous call stack. Once the call
+    stack drains, the microtask queue is processed, and "C" prints. This behavior is identical to
+    writing Promise.resolve().then(function() { console.log("C"); }). The key
+    insight is that await always yields to the event loop at least once, even when the Promise is
+    already resolved. This is by design in the spec to ensure predictable ordering.
+
+## Question 80:
+    How does error handling in async/await compare to Promise chains?
+    
+    Beginner Answer: In async/await, you use try/catch instead of .catch(). If any awaited
+    Promise rejects inside a try block, execution jumps to the catch block and skips remaining
+    lines. finally works the same way as .finally(), running regardless of success or
+    failure.
+    
+    Experienced Answer: The mapping is direct: try wraps the "happy path" (equivalent to
+    .then() chains), catch handles rejections (equivalent to .catch()), and finally runs
+    cleanup (equivalent to .finally()). However, async/await gives you a structural
+    advantage: granular error handling. In a .then() chain, a single .catch() at the end
+    handles all rejections uniformly, and adding per-step recovery requires nested
+    .then().catch() patterns that reduce readability. With try/catch, you can wrap
+    individual awaits in separate try/catch blocks, each with its own recovery logic, fallback
+    values, or retry strategies, while keeping the code linear. One subtlety: if you forget to await
+    a Promise and it rejects, the try/catch will NOT catch it because the rejection happens
+    outside the synchronous flow of the try block. This is a common source of bugs. Another
+    point: if you re-throw inside catch, the async function's returned Promise rejects,
+    propagating the error to the caller.
+
+## Question 81:
+    When should you use sequential await vs Promise.all?
+    
+    Beginner Answer: Use sequential await when tasks depend on each other (the result of one
+    is needed by the next). Use Promise.all when tasks are independent and can run at the
+    same time. Sequential takes the sum of all task times. Promise.all takes only as long as the
+    slowest task.
+    
+    Experienced Answer: The decision comes down to dependency analysis. If task B requires
+    the output of task A, they must be sequential. If tasks are independent, parallelizing with
+    Promise.all reduces total latency from the sum of durations to the maximum single
+    duration. But there are nuances. First, Promise.all is all-or-nothing: if any Promise rejects,
+    the entire result is lost. If partial failure is acceptable, Promise.allSettled is the better
+    choice. Second, starting too many parallel operations can cause resource contention (rate
+    limiting, connection pool exhaustion, memory pressure), so production systems often batch
+    parallel calls. Third, a hybrid pattern is common: sequential stages where each stage
+    internally parallelizes independent work. For example, fetch the user sequentially, then fetch
+    analytics and notifications in parallel. The key mental model is that calling a
+    Promise-returning function starts the work immediately. await only controls when you
+    read the result. Separating "start" from "read" is what enables parallelism.
+
+## Question 82:
+    What is wrong with using await inside a loop, and how do you fix it?
+    async function processItems(items) {
+    for (let i = 0; i < items.length; i++) {
+    await processItem(items[i]);
+    }
+    }
+    
+    Beginner Answer: Using await in a loop makes each iteration wait for the previous one to
+    finish. If you have 10 items that each take 1 second, the total time is 10 seconds. If the items
+    are independent, you can use Promise.all with .map() to process them in parallel,
+    reducing total time to about 1 second.
+    
+    Experienced Answer: The loop version is sequential by design, and that is correct when
+    processing order matters (e.g., database transactions that must execute in sequence, or
+    rate-limited APIs). The problem arises when items are independent and the sequential
+    pattern is used unintentionally. The fix is to create all Promises first, then await them
+    together:
+    async function processItems(items) {
+    const promises = items.map(function (item) {
+    return processItem(item);
+    });
+    await Promise.all(promises);
+    }
+    However, blindly parallelizing can be dangerous. If items has 1,000 entries and
+    processItem makes an HTTP request, you fire 1,000 concurrent requests, which can
+    overwhelm the server or hit rate limits. Production code often uses batching (process 10 at a
+    time) or a concurrency limiter. The correct answer to "should I parallelize this loop?" is
+    always "it depends on whether items are independent AND whether the system can handle
+    the concurrency."
+
+## Question 83:
+    How do you choose between the four Promise combinators?
+    
+    Beginner Answer: Use Promise.all when all results are required, allSettled when every outcome
+    matters, race when the first settlement should win, and any when the first successful result should win.
+    Experienced Answer: Start from failure semantics. Promise.all is fail-fast and preserves input ordering;
+    allSettled trades early exit for complete observability; race is settlement-neutral and can be won by a
+    rejection; any filters rejections until one fulfillment occurs and produces AggregateError only if all fail.
+    The right choice depends on whether partial data is valuable, whether failure should short-circuit, and
+    whether “first” means first settlement or first success.
+
+## Question 84:
+    Does Promise.all run tasks in parallel?
+    
+    Beginner Answer: Promise.all waits for several Promises together. If the Promise-returning functions
+    are called before awaiting, their work begins together, so total time is usually close to the slowest task.
+    
+    Experienced Answer: Promise.all is a coordinator, not a scheduler. Concurrency begins when the
+    functions are invoked and create their Promises. Promise.all only aggregates their outcomes. If you
+    await each function before building the array, the operations are already sequential. Also, JavaScript
+    concurrency does not necessarily mean CPU-level parallelism; it means overlapping async work
+    managed by the runtime.
+    
+## Question 85:
+    What happens after one Promise rejects inside Promise.all?
+    
+    Beginner Answer: Promise.all rejects immediately with the first rejection, and you should catch it with
+    try/catch.
+    
+    Experienced Answer: The aggregate Promise short-circuits on the earliest rejection in time, but the
+    remaining input operations are not cancelled. They continue settling independently; their values are no
+    longer available through that Promise.all result. This distinction matters for side effects, cleanup,
+    resource usage, and late error handling.
+    
+## Question 86:
+    Why does Promise.allSettled use value and reason?
+    
+    Beginner Answer: Fulfilled results store data in value. Rejected results store the error in reason. Check
+    status first.
+    
+    Experienced Answer: Each entry is a discriminated result object. status identifies the branch, and only
+    the matching payload property is meaningful: value for fulfilled, reason for rejected. This structure lets
+    one array safely represent heterogeneous outcomes without rejecting the aggregate Promise.
+    
+## Question 87:
+    What is the exact difference between Promise.race and Promise.any?
+    
+    Beginner Answer: race returns the first Promise to finish, even if it fails. any returns the first Promise to
+    succeed and ignores earlier failures.
+    
+    Experienced Answer: race short-circuits on the first settlement, so fulfillment and rejection compete
+    equally. any short-circuits only on fulfillment; rejections are accumulated until success occurs or all
+    inputs reject. Therefore race fits deadlines and first-response semantics, while any fits redundant
+    providers where failed sources should not prevent a later success.
+    
+## Question 88:
+    Why must a retry utility accept a function?
+    
+    Beginner Answer: The function creates a new Promise for every retry. Reusing the same Promise only
+    reuses its old result.
+    
+    Experienced Answer: A Promise represents one already-started operation and has an immutable
+    eventual state. Once it rejects, awaiting it again observes the same rejection; it does not execute the
+    producer again. Passing a thunk such as () => fetchData() separates operation creation from
+    coordination, allowing each attempt to produce a fresh Promise and genuinely repeat the work.
+    
+## Question 89:
+    How would you build a timeout with Promises?
+    
+    Beginner Answer: Use Promise.race between the real operation and a timer Promise that rejects after
+    the deadline.
+    
+    Experienced Answer: The timeout Promise provides an alternate settlement path. If it rejects first, the
+    race rejects and the caller can move on. However, this only bounds waiting time; it does not guarantee
+    cancellation of the original operation. A production answer should explicitly distinguish timeout behavior
+    from aborting underlying work.
+
+## Question 90:
+    
