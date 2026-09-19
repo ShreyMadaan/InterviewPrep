@@ -618,3 +618,236 @@
     that holds the secret and exposes a safe endpoint to the frontend. TMDB's read-only API key
     is an acceptable candidate for a VITE_ variable because it only grants read access to public
     movie data, but this would not be appropriate for a payment gateway secret key.
+
+## Question 34:
+    What is a race condition in React data fetching, and how do you prevent it?
+    
+    Beginner Answer: A race condition happens when two API requests are in flight at the
+    same time and the older one finishes last, overwriting the newer data. You prevent it by
+    using a cancelled flag inside useEffect. The cleanup function sets the flag to true when
+    the effect re-runs, so the stale response's state updates are skipped.
+    
+    Experienced Answer: Race conditions in React arise because useEffect dependencies can
+    change faster than network requests resolve. If a user triggers three rapid state changes,
+    three requests fire, but the responses may return in any order (response 1, response 3,
+    response 2). Without protection, the last response to arrive wins, regardless of whether it
+    corresponds to the current state. There are two standard solutions. The simpler one is a
+    closure-scoped cancelled boolean: the cleanup function sets it to true, and all state
+    updates inside the effect are guarded by if (!cancelled). This prevents stale updates but
+    does not cancel the actual HTTP request. The more thorough approach is
+    AbortController: you pass controller.signal to the fetch or Axios call, and
+    controller.abort() in the cleanup function. This cancels the in-flight request at the
+    network level, saving bandwidth and server resources. You catch the AbortError and
+    silently ignore it. In production, libraries like TanStack Query (React Query) handle this
+    automatically with built-in query cancellation, stale-while-revalidate, and deduplication.
+    Interviewers expect you to understand the underlying mechanism even if you use a library.
+
+## Question 35:
+    Why does the useEffect in the Movies component use [currentPage, search] as its
+    dependency array? What would happen with [] or no array?
+    
+    Beginner Answer: The dependency array [currentPage, search] tells React to re-run
+    the effect whenever the page number or search query changes. With [], it would only fetch
+    once on mount and never update when the user searches or paginates. Without any array, it
+    would run after every single render, causing unnecessary API calls.
+    
+    Experienced Answer: The dependency array is React's mechanism for synchronizing side
+    effects with state. [currentPage, search] means "this effect is a function of these two
+    values; re-synchronize whenever either changes." With [], the effect captures the initial
+    values of currentPage (1) and search ("") in its closure and never re-runs. The user clicks
+    Next, currentPage updates to 2, the component re-renders, but the effect does not fire. The
+    UI shows page 2 in the counter, but the grid still displays page 1's data. This is a stale closure
+    bug. Without any dependency array, the effect runs after every render. Since the effect itself
+    calls setLoading, setMovies, etc., each of those triggers a re-render, which triggers the
+    effect again. You get an infinite render loop that crashes the browser tab. The React linter
+    (react-hooks/exhaustive-deps) will warn you if your dependency array is missing
+    values that the effect references. Treat those warnings as errors.
+
+## Question 36:
+    Explain the Tailwind group hover pattern. Why not just use regular :hover?
+    
+    Beginner Answer: The group class goes on a parent element, and child elements use
+    group-hover: to react when the parent is hovered. Regular :hover only works on the
+    element being hovered. With group, hovering anywhere on the card (the image, the
+    padding, anywhere) triggers the overlay. Without it, the overlay would only appear when
+    you hover directly over it, which is impossible since it starts at opacity-0.
+    
+    Experienced Answer: The group pattern maps to CSS's :hover on a parent selector. When
+    you write group-hover:opacity-100 on a child, Tailwind generates a rule like
+    .group:hover .group-hover\:opacity-100 { opacity: 1 }. This solves a
+    fundamental interaction design problem: hover targets and visual feedback targets are often
+    different elements. The MovieCard's invisible overlay (opacity-0) cannot be hovered by
+    definition, so a direct :hover on it would never fire. The group pattern decouples the hover
+    trigger (the parent card) from the hover response (the child overlay). Without this CSS-only
+    approach, you would need onMouseEnter/onMouseLeave handlers and a useState
+    boolean to track hover state. That works, but it introduces a state variable, two event
+    handlers, and a re-render on every hover/unhover. The group pattern achieves the same
+    result with zero JavaScript and zero re-renders. Tailwind also supports group-focus:,
+    group-active:, and named groups (group/card) for more complex scenarios where
+    multiple nested groups exist.
+
+## Question 37:
+    What does loading="lazy" do on an <img> tag, and when would you NOT use it?
+    
+    Beginner Answer: loading="lazy" tells the browser to only download the image when it
+    is close to being visible on screen. This makes the page load faster because images below the
+    fold are not downloaded immediately. You would not use it for images that are visible right
+    away, like a banner at the top of the page.
+    
+    Experienced Answer: loading="lazy" is a native HTML attribute that triggers the
+    browser's built-in Intersection Observer for images. The browser defers the network
+    request until the image is within a calculated distance of the viewport (typically around
+    1250px on desktop in Chrome, though this varies by browser and network conditions). You
+    should NOT use it for above-the-fold content. The banner backdrop, the first row of movie
+    cards, any image the user sees immediately on page load. Lazy loading above-the-fold
+    images actually hurts performance because the browser waits for layout calculation before
+    starting the download, adding latency to your Largest Contentful Paint (LCP), which is a
+    Core Web Vital metric. The correct approach is loading="eager" (the default) for
+    above-the-fold images and loading="lazy" for everything below. In the MovieCard grid,
+    the first 4-5 cards are likely above the fold, so a more optimized implementation would
+    conditionally set loading based on the card's index. For most projects, applying lazy to all
+    cards is a reasonable tradeoff.
+
+## Question 38:
+    Why is setCurrentPage((p) => p - 1) preferred over
+    setCurrentPage(currentPage - 1)?
+    
+    Beginner Answer: The functional form (p) => p - 1 always uses the latest value of state.
+    The direct form currentPage - 1 uses the value from when the component last rendered,
+    which might be outdated if multiple updates happen quickly.
+    
+    Experienced Answer: React batches state updates for performance. Within a single event
+    handler or effect, multiple setState calls are grouped into one re-render. When you write
+    setCurrentPage(currentPage - 1), currentPage is a stale closure value captured
+    during the current render. If two updates are batched, both read the same stale value and
+    produce the same result. The functional form (p) => p - 1 receives the pending state (the
+    most recent value including any queued updates) as its argument, so sequential updates
+    compose correctly. Example: if currentPage is 5, calling setCurrentPage(currentPage
+    - 1) twice in the same batch produces 4 both times (final value: 4). Calling
+    setCurrentPage(p => p - 1) twice produces 4 then 3 (final value: 3). In pagination this
+    edge case is unlikely (you would not call handlePrevious twice synchronously), but the
+    functional form is a zero-cost best practice. React 18's automatic batching extends batching
+    to promises, timeouts, and native event handlers, making the functional form even more
+    important for consistency.
+
+## Question 39:
+    How does useParams work internally, and what should you watch out for?
+    
+    Beginner Answer: useParams is a React Router hook that reads dynamic segments from
+    the URL. If the route is /movie/:id and the URL is /movie/550, it returns { id: "550"
+    }. You should be careful that the value is always a string, not a number.
+    
+    Experienced Answer: useParams reads from the route context maintained by React
+    Router. When a URL matches a pattern with dynamic segments, the router extracts segment
+    values and stores them in context. useParams consumes that context and returns a plain
+    object where keys match the segment names and values are always strings. Three practical
+    implications. First, type safety: comparing useParams().id === movie.id fails silently if
+    movie.id is a number, because "550" !== 550. You either need explicit conversion
+    (Number(id)) or loose comparison. Second, the value comes from the URL, meaning the
+    user controls it. A user can type /movie/not-a-number in the address bar. Your
+    component must handle invalid IDs gracefully through the error state. Third, when id
+    changes in the URL without the component unmounting (e.g., navigating from one movie
+    detail to another via a "similar movies" link), useParams returns the new value but the
+    component stays mounted. Your useEffect must include id in its dependency array to
+    refetch. Missing this dependency causes a stale data bug where the detail page shows the
+    previous movie's information while the URL shows a different movie.
+
+## Question 40:
+    What is prop drilling, when is it acceptable, and when does it become a problem?
+    
+    Beginner Answer: Prop drilling is when you pass props through multiple component layers
+    to get data to a deeply nested component. The middle components receive the props but do
+    not use them. It becomes a problem when the chain is long, because adding or changing a
+    prop means editing many files.
+    
+    Experienced Answer: Prop drilling is the unavoidable consequence of React's
+    unidirectional data flow applied to deep component trees. In our IMDB app, four
+    watchlist-related values traverse App, AppRouter, HomePage, and Movies before reaching
+    MovieCard, the only consumer. The intermediate components are "pass-through" nodes that
+    inflate their signatures without gaining functionality. The costs are concrete: renaming
+    addToWatchlist to saveMovie requires changes in five files. Code reviews are harder
+    because component signatures suggest dependencies that do not exist. That said, prop
+    drilling is not inherently bad. For 1-2 levels with a small number of props, it is the simplest
+    and most explicit solution. You can trace exactly where every piece of data comes from by
+    reading the code linearly. The threshold is roughly: if 3+ props pass through 3+ levels of
+    components that do not consume them, it is time for an alternative. Context API solves this
+    by creating a "wormhole" in the component tree. But there is another technique many
+    developers overlook: component composition. If HomePage passed <Movies> as a child
+    instead of rendering it internally, App could inject the watchlist props directly into Movies
+    and skip HomePage entirely. Choosing between composition, Context, and external state
+    libraries depends on how many consumers exist, how frequently the data changes, and how
+    complex the state logic is.
+
+## Question 41:
+    Explain the two-part pattern for connecting React state to localStorage. Could the useEffect
+    cause an infinite loop?
+    
+    Beginner Answer: You read from localStorage when the component first mounts using
+    useState's lazy initializer. You write to localStorage whenever the state changes using a
+    useEffect with the state in its dependency array. It cannot cause an infinite loop because
+    localStorage.setItem does not trigger a React re-render. Only setState calls cause
+    re-renders.
+    
+    Experienced Answer: The pattern has two halves that must stay synchronized. The lazy
+    initializer useState(() => { ... }) runs exactly once during the first render, reading
+    and parsing from localStorage. The useEffect with [watchlist] dependency runs after
+    every render where watchlist has a new reference, stringifying and writing to
+    localStorage. The loop risk analysis: when addToWatchlist creates a new array, React
+    re-renders. The re-render triggers the effect because the watchlist reference changed
+    (Object.is comparison fails on the new array). Inside the effect, localStorage.setItem
+    is a synchronous DOM API call, not a React state update. It does not trigger a re-render, so
+    the chain stops. An infinite loop would only occur if the effect called setWatchlist inside
+    itself. One subtle edge case: on first mount, the useState initializer reads from localStorage
+    and the useEffect immediately writes the same data back. This is a redundant write but is
+    harmless because it is a single synchronous call with negligible performance impact. The
+    alternative (skipping the write on first mount with a ref flag) adds complexity that is not
+    worth it for localStorage's performance characteristics. For expensive persistence targets
+    (like IndexedDB or network calls), you would want that optimization.
+
+## Question 42:
+    Why does the useEffect dependency array in the Movie Detail page use [id] instead of
+    []?
+    
+    Beginner Answer: [id] makes the effect re-run whenever the URL's movie ID changes.
+    With [], it would only fetch once with the first movie's ID and never update if the user
+    navigated to a different movie's detail page without going back first.
+    
+    Experienced Answer: The detail page component does not unmount and remount when
+    the user navigates from /movie/550 to /movie/680 (e.g., via a "similar movies" link in the
+    future, or using browser back/forward). React Router updates the URL, useParams returns
+    the new id, and the component re-renders. But useEffect with [] captures the original id
+    in its closure and never re-runs, creating a stale closure bug. The component re-renders
+    with the new id value (which is visible if you display id in JSX), but the data remains from
+    the old movie because the fetch never fires again. With [id], the effect compares the new id
+    with the previous one via Object.is. Since they are different strings ("550" vs "680"), the
+    cleanup function runs (setting cancelled = true for the old request), and the new fetch
+    fires. This is also why the cancelled flag matters here. If the user rapidly clicks through
+    several movies, multiple requests fire. The cleanup ensures only the latest response updates
+    the state. In the React DevTools profiler, you would see the component re-render each time
+    id changes, and you can verify the effect fires by watching the network tab.
+
+## Question 43:
+    In the MovieCard, why is e.preventDefault() needed, and how is it different from
+    e.stopPropagation()?
+    
+    Beginner Answer: e.preventDefault() stops the Link from navigating when the heart
+    button is clicked. Without it, clicking the heart would both toggle the watchlist and navigate
+    to the detail page. e.stopPropagation() stops the event from bubbling to parent
+    elements, which is a different thing.
+    
+    Experienced Answer: The MovieCard is wrapped in a Link component, which renders a
+    native <a> element in the DOM. When the user clicks the heart <button>, the click event
+    fires on the button first (target), then bubbles up through the DOM tree until it reaches the
+    <a> element. The <a> element's default behavior is navigation. e.preventDefault()
+    suppresses this default browser behavior. The event still bubbles (parent elements still
+    receive it), but the navigation does not happen. e.stopPropagation() would stop the
+    bubbling itself, meaning parent elements would not even see the event. In this specific case,
+    either would work because the only parent effect we want to prevent is the <a> navigation.
+    However, preventDefault is more precise: it targets the specific behavior (navigation)
+    rather than blocking all event propagation, which could interfere with other event listeners
+    higher in the tree (analytics tracking, keyboard shortcut handlers, etc.). The distinction
+    becomes critical in forms: e.preventDefault() on a form submit stops the page from
+    reloading but still lets the event bubble to a parent form handler. e.stopPropagation()
+    would prevent the parent from hearing about the submit at all. Use preventDefault to
+    control browser default behavior. Use stopPropagation to control event flow through the
+    component tree. They solve different problems and can be used together when needed.
