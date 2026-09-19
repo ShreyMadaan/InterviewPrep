@@ -325,6 +325,3 @@
     Beginner: :hover is about the mouse pointer being over an element. :focus is about keyboard focus (or clicking into an input). Yes, both can be active at once: if you click a button, it is both hovered and focused, and styles stack.
     
     Experienced: :hover reflects pointer position and does not exist on touch devices, so it should never gate essential information. :focus reflects keyboard or programmatic focus and is an accessibility requirement, not decoration. They are independent and can co-occur, which is why declaration order (:hover, :focus, :active) matters when they share specificity. In production, prefer :focus-visible to show focus rings only for keyboard users.
-
-
-
