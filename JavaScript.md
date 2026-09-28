@@ -1408,4 +1408,374 @@
     from aborting underlying work.
 
 ## Question 90:
+    What is event delegation and why would you use it?
     
+    Beginner Answer: Event delegation means attaching one event listener to a parent element
+    instead of attaching separate listeners to each child. It works because events bubble up from
+    the target to its ancestors. This is more efficient, especially when you have many child
+    elements.
+    
+    Experienced Answer: Event delegation leverages the bubbling phase of the DOM event
+    model. You attach a single listener to a stable ancestor and use event.target (or
+    event.target.closest()) to determine which child triggered the event. The practical
+    benefits go beyond performance. When you dynamically add new children to the DOM (like
+    new comments in a thread), delegated listeners automatically cover them without
+    re-attaching anything. Without delegation, you would need to bind a listener every time you
+    create a new element. In machine coding interviews, delegation is almost always the
+    expected approach, because it results in less code, fewer bugs, and cleaner teardown.
+
+## Question 91:
+    How does closest() work, and when would you use it?
+    
+    Beginner Answer: element.closest(selector) walks up the DOM tree from the
+    element and returns the first ancestor that matches the given CSS selector. If no match is
+    found, it returns null. It is useful when a click event fires on a deeply nested element and
+    you need to find a specific parent container.
+    
+    Experienced Answer: closest() traverses from the current element upward through its
+    ancestors (including the element itself) and returns the first match for the CSS selector, or
+    null. It is the complement of querySelector, which searches downward. In event
+    delegation patterns, closest() solves the fragile-target problem: if a button contains an
+    icon, event.target might be the icon, not the button. Using
+    event.target.closest(".reply-btn") guarantees you get the button regardless of
+    what was actually clicked inside it. In the nested comments system, closest(".comment")
+    is critical because it correctly identifies the owning comment at any nesting depth. Without
+    it, you would need to manually traverse with parentElement chains, which breaks as soon
+    as the DOM structure changes.
+
+## Question 92:
+    Walk me through how you would build a star rating component.
+
+    Beginner Answer: I would render five star elements inside a container, each with a data
+    attribute for its position. I would add one click listener on the container. When a star is
+    clicked, I would read its index and loop through all stars, filling the ones at or before that
+    index and emptying the rest.
+    
+    Experienced Answer: I would start with a container div and render five child elements,
+    each carrying a data-index attribute (0 through 4). One delegated click listener on the
+    container handles everything. On click, I first check if the target is actually a star (guard
+    clause), then read event.target.dataset.index. I loop through all stars and compare
+    each star's index against the clicked index to add or remove an "active" class. For a
+    production version, I would consider: keyboard accessibility (arrow keys to change rating,
+    Enter to confirm), hover preview (filling stars on mouseenter, resetting on mouseleave
+    unless already rated), half-star support using the click position relative to the star's
+    bounding box, and ARIA attributes (role="slider", aria-valuenow) for screen readers.
+    In an interview, I would mention these after getting the basic version working.
+
+## Question 93:
+    In the nested comments system, how does infinite nesting work without recursive
+    function calls?
+    
+    Beginner Answer: The function that creates a comment element always includes an empty
+    container for replies inside it. When someone replies, a new comment element is created
+    and placed inside that container. This can happen at any depth because every comment has
+    the same structure.
+    
+    Experienced Answer: The createCommentElement function produces a DOM node that
+    includes a .replies container. When a reply is submitted, the same function is called to
+    create a new comment, and that new comment is appended into the .replies container of
+    the parent comment. The function never calls itself (there is no recursion in the JavaScript),
+    but the DOM structure it produces is recursive: each comment can contain comments, which
+    can contain comments, indefinitely. This is what makes it scalable. You write one function
+    and one set of event handlers (delegated), and the system supports arbitrary depth without
+    any additional code. The important distinction for interviews: the data structure (DOM tree)
+    is recursive, but the code that builds it is iterative (each call to createCommentElement is
+    triggered by a user action, not by the function itself).
+
+## Question 94:
+    What is a guard clause and why is it important in delegated event handlers?
+    
+    Beginner Answer: A guard clause is an early return at the top of a function that exits
+    immediately if a condition is not met. In delegated event handlers, you need it because clicks
+    on the parent container itself (not on a child element) would also trigger the handler. The
+    guard clause prevents errors by exiting early when the target is not relevant.
+
+    Experienced Answer: Guard clauses invert the typical if/else nesting pattern. Instead of
+    wrapping your entire logic in if (target is valid) { ... }, you write if (target
+    is NOT valid) return; at the top and keep the main logic at the base indentation level.
+    In delegated handlers, this is essential for two reasons. First, clicks land on the container, on
+    whitespace, or on unexpected children. Without a guard, you get undefined reads on
+    dataset or closest() returning null. Second, when a single delegated handler manages
+    multiple actions (reply, edit, delete), you chain guard clauses: check for reply button first,
+    then edit, then delete. Each check either handles the action and returns, or falls through.
+    This structure keeps the handler flat and readable even as you add features, which
+    interviewers notice and appreciate.
+
+## Question 95:
+    What are the risks of using innerHTML to render user-provided text?
+    
+    Beginner Answer: If you set innerHTML to a string that contains HTML tags, the browser
+    will parse and render them. A malicious user could inject a <script> tag or an event
+    handler like onerror to run JavaScript. This is called an XSS attack. Using textContent
+    instead treats the string as plain text.
+    
+    Experienced Answer: innerHTML parses the assigned string as HTML markup, which
+    means any valid HTML (including elements with inline event handlers like onerror,
+    onload, or onmouseover) will be interpreted and executed. Modern browsers block
+    <script> tags inserted via innerHTML, but image tags with onerror handlers still execute.
+    This is a stored XSS vector if the comment text is persisted to a database and served to other
+    users. Mitigation layers include: using textContent or innerText for plain text output,
+    sanitizing input with a library like DOMPurify if HTML formatting is needed, applying a
+    Content Security Policy header to restrict inline script execution, and escaping special
+    characters (<, >, &, ", ') on the server side. In a machine coding interview, switching from
+    innerHTML to textContent for user input and briefly mentioning XSS is a quick way to
+    demonstrate security awareness.
+
+## Question 96:
+    What is the difference between async and defer on a script tag?
+    
+    Beginner Answer: Both async and defer download the script in parallel without blocking
+    HTML parsing. async executes the script as soon as it is downloaded, which can interrupt
+    parsing. defer waits until the HTML is fully parsed before executing. defer also guarantees
+    execution order when multiple scripts are used.
+    
+    Experienced Answer: async scripts execute in download-completion order, which is
+    non-deterministic. If script B depends on script A, async can break because B might
+    download faster. defer guarantees document-order execution after the
+    DOMContentLoaded event fires. In practice, defer replaces the legacy pattern of placing
+    scripts before </body>. One subtle point: async on a module script (type="module")
+    makes the module execute as soon as its dependency graph is ready, while modules are
+    deferred by default. For critical-path analytics that must fire regardless of DOM readiness,
+    async is appropriate. For everything else, defer is safer.
+
+## Question 97:
+    How does native lazy loading work, and what are its limitations?
+    
+    Beginner Answer: You add loading="lazy" to an <img> or <iframe>. The browser
+    delays fetching the resource until the user scrolls near it. It saves bandwidth and speeds up
+    initial load. You should not use it on images that are already visible (above the fold).
+
+    Experienced Answer: The browser uses a distance-from-viewport threshold (varies by
+    browser, network speed, and connection type) to decide when to start fetching. Limitations
+    include: (1) no fine-grained control over the threshold, (2) no built-in fade-in or placeholder
+    support, (3) the loading attribute is ignored on images without a src (it does not work
+    with CSS background-image), and (4) older browsers ignore the attribute entirely, loading
+    everything eagerly. For more control, the IntersectionObserver API lets you define exact
+    thresholds and trigger custom logic (animations, placeholder swaps) when elements enter
+    the viewport. Also, always provide width and height attributes to prevent layout shifts,
+    since the browser needs to reserve space before the image is fetched.
+
+## Question 98:
+    Explain debouncing. Can you write a debounce function from scratch?
+    
+    Beginner Answer: Debouncing delays a function call until the user stops triggering an
+    event for a set amount of time. For example, in a search bar, you wait 500ms after the user
+    stops typing before making an API call. You use setTimeout to set a timer and
+    clearTimeout to reset it on each new event.
+    
+    Experienced Answer: A debounce function returns a closure that captures a timerId
+    variable. On each invocation, it clears the previous timeout and sets a new one. The key
+    implementation details are: (1) using .apply(this, args) or the spread operator inside
+    the timeout to preserve the original this context and event arguments, (2) optionally
+    supporting a leading flag that fires on the first call and then suppresses until idle (useful
+    for button click protection), and (3) providing a .cancel() method on the returned
+    function so you can clean up timers when a component unmounts (critical in frameworks
+    like React to prevent memory leaks and state updates on unmounted components).
+    Libraries like Lodash implement all three of these. In React specifically, you would typically
+    wrap the debounced function in useRef or useMemo to avoid recreating it on every render.
+
+## Question 99:
+    Explain throttling. How is it different from debouncing?
+    
+    Beginner Answer: Throttling ensures a function runs at most once every specified interval,
+    no matter how many times the event fires. Unlike debouncing, which waits for inactivity,
+    throttling fires at regular intervals during continuous activity. Scroll handlers and resize
+    listeners commonly use throttling.
+    
+    Experienced Answer: The fundamental distinction is "when does the callback fire."
+    Debounce fires after the event stream ends (trailing edge). Throttle fires periodically during
+    the stream. A robust throttle implementation can support both leading and trailing
+    invocations: the leading call fires immediately, and a trailing call fires at the end of the last
+    interval to capture the final state. requestAnimationFrame (rAF) is a browser-native
+    alternative for visual throttling. It fires once per frame (~16ms at 60fps) and automatically
+    pauses in background tabs, making it more efficient than a manual setTimeout-based
+    throttle for animations. For non-visual throttling (API calls, logging), a custom throttle with
+    a configurable interval is more appropriate.
+
+## Question 100:
+    What is a DocumentFragment and why would you use it?
+    
+    Beginner Answer: A DocumentFragment is a lightweight container that exists in memory,
+    not in the live DOM. You can add multiple elements to it and then insert them all at once,
+    which is faster than adding elements one by one because the browser only needs to update
+    the page once.
+    
+    Experienced Answer: Each direct DOM insertion can trigger style recalculation, layout
+    (reflow), and paint. A DocumentFragment batches these mutations. When appended to the
+    DOM, the fragment itself is not inserted. Only its children are moved, and the fragment
+    becomes empty. This makes it a zero-overhead container. Compared to building an HTML
+    string and using innerHTML, DocumentFragment avoids the security risk of injecting
+    unsanitized content (XSS) and preserves existing event listeners on sibling elements.
+    Modern frameworks abstract this away with virtual DOMs (React) or reactivity systems
+    (Vue), but in vanilla JS, DocumentFragment remains the recommended pattern for bulk
+    insertions. Another alternative is Element.append() with multiple arguments, which also
+    batches internally, though DocumentFragment is more explicit and works with older APIs
+    like appendChild.
+
+## Question 101:
+    What is the difference between preload and prefetch?
+    
+    Beginner Answer: preload downloads a resource that is needed on the current page with
+    high priority. prefetch downloads a resource that might be needed on a future page with
+    low priority. You use preload for fonts or critical CSS and prefetch for assets of the next
+    page the user might visit.
+    
+    Experienced Answer: preload is a mandatory fetch: the browser treats it as high priority
+    and will issue a console warning if the preloaded resource is not used within a few seconds
+    of page load. This means overusing preload wastes bandwidth and can delay more critical
+    resources. prefetch is opportunistic: the browser fetches during idle time and may skip it
+    entirely on slow connections or when Data Saver mode is enabled. A subtle mistake is
+    preloading resources that the browser would discover early on its own (like a stylesheet
+    linked directly in the head). Preload is most valuable for resources hidden from the parser,
+    such as fonts referenced inside CSS files or images referenced in JavaScript. The as attribute
+    on preload is mandatory. Without it, the browser may fetch the resource twice because it
+    cannot match it to the eventual request. Common values are font, style, script, image,
+    and fetch.
+
+## Question 102:
+    When would you use preconnect?
+    
+    Beginner Answer: You use preconnect when your page loads resources from a third-party
+    domain. It tells the browser to set up the connection (DNS lookup, TCP, TLS) early so that
+    when the actual resource is requested, the connection is already ready.
+    
+    Experienced Answer: Each cross-origin connection involves DNS resolution (~50ms), TCP
+    handshake (~50ms), and TLS negotiation (~100ms). preconnect performs all three steps
+    proactively. However, connections are expensive to keep open. If the browser does not use a
+    preconnected origin within about 10 seconds, the connection is dropped and the work is
+    wasted. Best practice is to limit preconnect to 2 to 4 critical origins. For origins that are
+    "nice to have" but not critical, dns-prefetch is a lighter alternative that only resolves DNS.
+    A common pattern is to pair both as a fallback, since older browsers that do not support
+    preconnect will ignore it but may support dns-prefetch.
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+
+## Question 103:
+    How would you decide between debounce and throttle for a scroll event that triggers
+    animations?
+    
+    Beginner Answer: For scroll-based animations, I would use throttle because the user needs
+    to see smooth, continuous updates as they scroll. Debounce would only fire once after
+    scrolling stops, which would make the animation feel broken.
+    
+    Experienced Answer: For visual scroll effects, requestAnimationFrame (rAF) is the best
+    choice, not a manual throttle. rAF is synced to the browser's repaint cycle (typically 60fps),
+    so it naturally throttles to one call per frame and avoids layout thrashing. A common pattern
+    is to set a flag inside the scroll listener, execute the visual update inside a rAF callback, and
+    reset the flag after execution. For non-visual scroll work (like logging scroll depth or loading
+    more data in infinite scroll), a standard throttle with a 150 to 300ms interval is appropriate.
+    Debounce would only be suitable if you need to act after the user finishes scrolling (e.g.,
+    snapping to the nearest section).
+
+## Question 104:
+    What does this refer to in JavaScript?
+    
+    Beginner Answer: this refers to the object that is calling the function. In a method call like
+    obj.fn(), this is obj. In a plain function call, this is the global object or undefined in
+    strict mode.
+    
+    Experienced Answer: this in JavaScript is determined entirely by how a function is
+    invoked, not where it is written. There are four binding rules in order of precedence: new
+    binding (constructor calls), explicit binding (call, apply, bind), implicit binding (method
+    calls where the object left of the dot becomes this), and default binding (plain calls fall back
+    to the global object, or undefined in strict mode). Arrow functions are a special case
+    because they skip all four rules and lexically inherit this from their enclosing scope at
+    definition time. This call-site-driven behavior is fundamentally different from languages like
+    Java or C++, where this is always the instance and is resolved at compile time.
+
+## Question 105:
+    What is the difference between this in a browser and in Node.js?
+    
+    Beginner Answer: In the browser, the global object is window, so a plain function call gives
+    this as window. In Node.js, the global object is global, and at the top level this points to
+    module.exports which is an empty object.
+    
+    Experienced Answer: The difference stems from the module system. Browsers execute
+    scripts in the global scope by default, so top-level this equals window. Node.js wraps every
+    file in a module function (the CommonJS module wrapper), so top-level this refers to
+    module.exports, which starts as {}. However, inside a plain function call, Node.js resolves
+    this to the global object (non-strict) just like the browser resolves it to window. Strict
+    mode unifies the behavior somewhat: plain calls yield undefined in both environments. For
+    cross-environment code, globalThis (ES2020) provides a single reference to the correct
+    global object regardless of runtime.
+
+## Question 106:
+    How does strict mode affect this?
+    
+    Beginner Answer: In strict mode, this inside a plain function call is undefined instead of
+    the global object. Method calls and top-level this are not affected.
+    
+    Experienced Answer: Strict mode narrows the default binding rule. Without strict mode, a
+    plain function call silently binds this to the global object, which is a common source of
+    accidental global mutations and hard-to-trace bugs. Strict mode replaces that with
+    undefined, which causes a clear TypeError if you try to access a property on it. This is one
+    of the main reasons ES6 modules use strict mode by default. It is worth noting that strict
+    mode does not change implicit binding (method calls), explicit binding (call/apply/bind),
+    or new binding. It only patches the one case where this would silently fall back to the global
+    scope.
+
+## Question 107:
+    Why does extracting a method from an object lose this?
+    
+    Beginner Answer: When you assign a method to a variable, you are copying the function
+    reference. Calling it through the variable is a plain function call, not a method call, so there is
+    no object on the left side of the dot. this defaults to global or undefined.
+    
+    Experienced Answer: JavaScript functions are first-class values. When you write const fn
+    = obj.method, you are storing a reference to the function itself, with no memory of obj. At
+    the call site, fn() has no base object in the member expression, so the engine applies the
+    default binding rule. This is not a quirk but a direct consequence of this being resolved at
+    call time. The pattern appears constantly in real codebases: passing methods as callbacks to
+    setTimeout, Promise.then, Array.prototype.map, or event listeners. Solutions include
+    wrapping in an arrow function (() => obj.method()), using .bind(obj) to create a
+    hard-bound copy, or defining the method as an arrow function in the constructor (common
+    in React class components before hooks).
+
+## Question 108:
+    How does this work in arrow functions?
+    
+    Beginner Answer: Arrow functions do not have their own this. They use the this value
+    from the surrounding scope where they were defined.
+    
+    Experienced Answer: Arrow functions perform lexical this binding. When the engine
+    creates an arrow function, it captures the this value from the enclosing execution context
+    and permanently closes over it. Unlike regular functions, arrow functions cannot have their
+    this overridden by call, apply, bind, or even the new keyword (they throw a TypeError
+    as constructors). This makes them ideal for callbacks inside methods, where a regular
+    function would lose the method's this. However, this same behavior makes them
+    unsuitable as object literal methods, because the enclosing scope for an object literal is the
+    module or global scope, not the object itself. They are also unsuitable as prototype methods
+    where you need dynamic this to vary across instances.
+
+## Question 109:
+    Why should you not use an arrow function as an object method?
+    
+    Beginner Answer: Because arrow functions take this from the surrounding scope. When
+    defined directly on an object literal, the surrounding scope is the global or module scope,
+    not the object. So this will not point to the object.
+    
+    Experienced Answer: An object literal is not a scope. It is a data structure built by an
+    expression. When the parser encounters an arrow function as a property value, the
+    enclosing lexical environment is whatever scope surrounds the object literal (typically
+    module scope or function scope). So this inside that arrow function will be
+    module.exports (Node.js) or window (browser), never the object itself. This is a common
+    mistake when developers learn that arrow functions "fix" this and then apply them
+    everywhere. The rule of thumb: use regular functions (or shorthand method syntax) for
+    object methods that need this, and use arrow functions for callbacks inside those methods
+    where you want to preserve the outer this.
+
+## Question 110:
+    What happens when a regular function is nested inside a method?
+    
+    Beginner Answer: The inner regular function loses the method's this. When it runs, it is a
+    plain function call, so this becomes the global object or undefined in strict mode.
+    
+    Experienced Answer: This is the "nested function trap." The inner function is invoked as a
+    standalone call, not as a method of the outer object. The engine does not propagate this
+    through nested calls. Each regular function invocation gets its own this based on its own
+    call site. Before ES6, the common workaround was var self = this or var that =
+    this in the method, then referencing self in the inner function (closure over a variable, not
+    over this). With ES6, the idiomatic fix is replacing the inner function with an arrow
+    function, which lexically captures the method's this. Another option is calling the inner
+    function with .call(this) to explicitly pass the context, but this is less common because it
+    requires discipline at every call site.
