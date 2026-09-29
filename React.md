@@ -1126,3 +1126,268 @@
     with local state, lift to the nearest common ancestor, use Context when lifting creates prop
     drilling, and reach for a dedicated library when Context's re-render model or feature set
     becomes insufficient. Each tool solves a specific problem at a specific scale.
+
+## Question 53:
+
+    What is Redux, and how does it differ from React's Context API?
+
+    Beginner Answer: Redux is a state management library that stores all app state in a single
+    centralized store. Components read state using useSelector and update it by dispatching
+    actions. Context API is built into React and broadcasts state to descendants via a Provider.
+    The main differences are: Redux has built-in DevTools for debugging, Redux re-renders only
+    components whose selected data changed, and Redux handles async operations with
+    createAsyncThunk.
+
+    Experienced Answer: Redux and Context solve related but distinct problems. Context is a
+    dependency injection mechanism: it makes values available to descendants without prop
+    drilling. It does not provide state management, action logging, middleware, or selective
+    re-rendering. Redux is a full state management architecture implementing the Flux pattern:
+    unidirectional data flow through actions, reducers, and a centralized store. The re-rendering
+    model is fundamentally different. Context uses Object.is on the entire value object. If any
+    part changes, all consumers re-render. Redux's useSelector compares the return value of
+    the selector function with strict equality. A component selecting state.cart.items does
+    not re-render when state.products.loading changes. This granularity matters in apps
+    with many consumers and frequent updates. The debugging story is also different. Context
+    state changes are invisible. Redux DevTools record every action, its payload, the resulting
+    state diff, and enable time-travel debugging. In production, this means you can reproduce
+    and diagnose bugs by replaying the action sequence. That said, Redux adds complexity: a
+    store file, slice files, action creators, thunks. For a simple shared boolean (dark mode toggle),
+    this is overkill. The decision framework is: use local state for component-specific data,
+    Context for low-frequency cross-cutting concerns (auth, theme), and Redux when you need
+    predictable state management with debugging tools, middleware, or selective subscriptions.
+
+## Question 54:
+    
+    What is createSlice and what does it generate automatically?
+    
+    Beginner Answer: createSlice is a Redux Toolkit function that takes a name, initial state,
+    and reducer functions, and automatically creates action types and action creator functions.
+    You write the reducers, and it generates everything else. The action type for a reducer called
+    addToCart in a slice named "cart" becomes "cart/addToCart".
+    
+    Experienced Answer: createSlice is RTK's core abstraction that eliminates three
+    categories of boilerplate. First, action type constants: instead of manually defining const
+    ADD_TO_CART = "cart/addToCart", the slice auto-generates types by combining name
+    and reducer keys ("cart/addToCart"). Second, action creators: instead of writing
+    function addToCart(product) { return { type: "cart/addToCart", payload:
+    product } }, RTK generates these functions and attaches them to slice.actions. Third,
+    immutable update logic: instead of deeply nested spread operations, Immer intercepts your
+    "mutating" code and produces immutable updates automatically. The slice object returned
+    by createSlice has two critical properties: .reducer (the combined reducer function,
+    used in configureStore) and .actions (the auto-generated action creators, exported for
+    components to dispatch). The reducers field handles synchronous, slice-internal actions.
+    The extraReducers field handles actions from external sources (primarily
+    createAsyncThunk). This separation is deliberate: reducers actions are owned by the
+    slice. extraReducers actions are owned by thunks or other slices. The naming makes
+    ownership clear.
+
+## Question 55:
+    
+    How does Immer make "mutating" state safe inside Redux Toolkit reducers?
+    
+    Beginner Answer: Immer is a library used internally by Redux Toolkit. When a reducer
+    runs, Immer gives you a draft copy of the state. You can "mutate" the draft with code like
+    state.value += 1. When the reducer finishes, Immer uses your changes to build a new
+    immutable state object. The original state is never actually mutated.
+    
+    Experienced Answer: Immer uses JavaScript Proxy objects to create a "draft" state. When
+    your reducer executes state.items.push(newItem), the push call is intercepted by the
+    Proxy. Immer records the operation ("an item was appended to the items array") without
+    modifying the original state. When the reducer returns, Immer walks the recorded changes
+    and produces a structurally shared immutable result. Parts of the state tree that were not
+    touched retain their original references (enabling === checks for unchanged branches),
+    while modified paths get new references. This is the same structural sharing technique used
+    by Immutable.js and persistent data structures. The practical benefit is that deeply nested
+    updates that would require multiple levels of spread operators ({ ...state, cart: {
+    ...state.cart, items: state.cart.items.map(...) } }) become simple
+    imperative mutations (state.cart.items.push(...)). This dramatically reduces the
+    surface area for bugs, since spread-based immutable updates are one of the most common
+    sources of errors in Redux. One important rule: inside an Immer-powered reducer, you must
+    either mutate the draft OR return a new value, never both. Returning a value tells Immer
+    "ignore the mutations, use this instead." Doing both causes unpredictable behavior.
+
+## Question 56:
+    What is createAsyncThunk and why can you not put async logic directly in a reducer?
+    
+    Beginner Answer: Reducers must be synchronous, they cannot use await or make API
+    calls. createAsyncThunk lets you write an async function (like fetching data from an API)
+    and automatically dispatches three actions: pending (fetch started), fulfilled (fetch
+    succeeded with data), and rejected (fetch failed with error). You handle these three
+    actions in extraReducers.
+    
+    Experienced Answer: Redux reducers must be pure functions: given the same state and
+    action, they must always return the same new state, with no side effects. Async operations
+    (network requests, timers, localStorage access) are side effects by definition. Their output
+    depends on external factors (network availability, server response time, cached data).
+    createAsyncThunk moves the side effect outside the reducer. The thunk function runs in
+    middleware (between dispatch and the reducer), performs the async work, and then
+    dispatches synchronous actions that reducers can handle. The three lifecycle actions
+    (pending, fulfilled, rejected) map directly to the loading/data/error pattern. In
+    extraReducers, pending sets loading: true, fulfilled stores the data, and rejected
+    stores the error. This is the same pattern as useState + useEffect in a component, but
+    centralized and traceable. Every lifecycle action appears in DevTools. You can see exactly
+    when the fetch started, when it completed, and what data arrived. The thunk also receives a
+    thunkAPI parameter that provides dispatch, getState, rejectWithValue, and other
+    utilities for complex scenarios like conditional fetching ("do not fetch if data already exists")
+    or transforming error responses before they reach the reducer.
+
+## Question 57:
+    
+    What is useSelector, and how does its re-rendering behavior differ from Context?
+    
+    Beginner Answer: useSelector is a hook that reads data from the Redux store. You pass it
+    a function that picks the piece of state you need. The component re-renders only when that
+    specific piece changes, not when other parts of the store change. In Context, all consumers
+    re-render whenever any part of the context value changes.
+    
+    Experienced Answer: useSelector subscribes the component to the Redux store and
+    runs the selector function after every dispatched action. It compares the new return value
+    with the previous one using strict reference equality (===). If the reference is the same, the
+    component does not re-render. If it is different, the component re-renders. This is
+    fundamentally different from Context, which compares the entire value object with
+    Object.is. In Context, if you provide { watchlist, addToWatchlist,
+    removeFromWatchlist }, adding a movie creates a new object reference, and every
+    consumer re-renders, even components that only use removeFromWatchlist (which did
+    not change). In Redux, useSelector(state => state.cart.items) only re-renders
+    when items changes. A dispatch to state.products does not affect this component at all.
+    There is a subtlety: if your selector returns a new object or array on every call (e.g.,
+    useSelector(state => state.cart.items.filter(...))), the reference is always
+    different, and the component re-renders on every dispatched action. The solution is to use
+    shallowEqual as the second argument to useSelector, or memoize the selector with
+    createSelector from reselect. For simple property access selectors (state =>
+    state.cart.items), this is not a concern because Redux returns the same reference if the
+    slice has not changed.
+
+## Question 58:
+
+    What are selectors in Redux, and why are they better than computing derived data inside
+    components?
+    
+    Beginner Answer: Selectors are functions that take the store state and return a specific
+    piece or computed value. They are better than doing the computation in components
+    because the logic is written once in the slice file and can be reused by any component. If the
+    state shape changes, you update the selector, not every component.
+    
+    Experienced Answer: Selectors serve three purposes. First, abstraction: they decouple
+    components from the state shape. Components call selectCartTotalPrice(state), not
+    state.cart.items.reduce(...). If the state structure changes (array to normalized
+    object, flat to nested), selectors are the only code that updates. Second, reusability: the total
+    price computation is defined once and used in CartPage, a potential checkout sidebar, an
+    order summary, anywhere. Without selectors, each component reimplements the same
+    .reduce() call, creating duplication and divergence risk. Third, memoization: plain
+    selectors recompute on every render, but createSelector from Reselect (included in RTK)
+    memoizes the output. It tracks input selector results and only recomputes the derived value
+    when inputs change. For a selector that filters and sorts thousands of items, this prevents
+    expensive recomputation when unrelated state changes (like a UI toggle). The convention is
+    to co-locate selectors with their slice. The slice defines the state shape and the selectors that
+    read from it. This creates a clean module boundary: the slice is the API for its state, and
+    selectors are the read-only part of that API.
+
+## Question 59:
+    
+    How does Redux persist state to localStorage, and how does it differ from the Context
+    approach?
+    
+    Beginner Answer: Redux uses preloadedState in configureStore to load saved data
+    when the app starts, and store.subscribe to save data after every state change. Context
+    used useState with a lazy initializer to load data and useEffect to save data. Both achieve
+    the same result with different mechanisms.
+    
+    Experienced Answer: The approaches are architecturally different in where the
+    persistence logic lives. In Context, persistence is co-located with the state definition inside
+    the Provider component. useState's lazy initializer reads localStorage synchronously
+    during the first render, and useEffect writes on every state change. This is React-centric: it
+    uses React's lifecycle (render, effect) to manage an infrastructure concern. In Redux,
+    persistence lives in the store configuration file, completely outside React. preloadedState
+    sets the initial state before any component renders, and store.subscribe registers a
+    callback that runs after every dispatched action. No React hooks, no component lifecycle, no
+    effects. Components have zero awareness of persistence. This separation has a practical
+    benefit: if you switch from localStorage to IndexedDB, sessionStorage, or a server-side sync
+    mechanism, you change one file (store.js) and zero components. In the Context approach,
+    the persistence logic is interleaved with Provider rendering logic, making it slightly harder
+    to isolate. store.subscribe does have a characteristic to be aware of: it fires on every
+    dispatched action, not just cart-related ones. A product fetch completing triggers a subscribe
+    callback that writes the unchanged cart to localStorage. For localStorage (synchronous, fast),
+    this is harmless. For an expensive persistence target, you would debounce the write or use
+    middleware that inspects the action type.
+
+## Question 60:
+    
+    What is Redux middleware, and why is the (store) => (next) => (action) =>
+    pattern structured that way?
+    
+    Beginner Answer: Middleware sits between dispatch and the reducer. Every action passes
+    through middleware before reaching the reducer. The three-arrow pattern is just how Redux
+    expects middleware to be structured: the outer function receives the store, the middle
+    function receives the next middleware in the chain, and the inner function receives the
+    action. You call next(action) to pass the action forward.
+    
+    Experienced Answer: The triple-arrow pattern is a chain of closures, each capturing a
+    different scope. The outermost function (store) => runs once during store creation. It
+    closes over the store reference, giving the middleware permanent access to
+    store.getState() and store.dispatch(). The middle function (next) => also runs
+    once during setup. next is a reference to either the next middleware in the chain or the root
+    reducer if this is the last middleware. It creates the pipeline. The inner function (action)
+    => runs on every dispatch. This is where your actual logic lives. You can inspect the action,
+    call next(action) to pass it through, call store.getState() before and after to see the
+    state diff, or even dispatch entirely new actions via store.dispatch(). The pattern exists
+    because middleware is composed during store creation, not during dispatch. The store
+    chains all middleware together once, creating a pipeline function. Each dispatch call then
+    flows through this pre-composed pipeline. This is more efficient than re-evaluating the
+    middleware list on every dispatch. RTK includes redux-thunk (which intercepts
+    function-typed actions and calls them instead of passing to the reducer) and a serialization
+    checker (development only). Most applications never need custom middleware. The
+    common use cases (async operations, logging, persistence) are handled by thunks, DevTools,
+    and store.subscribe respectively.
+
+## Question 61:
+    
+    The decrementQuantity reducer removes the item entirely when quantity reaches 1.
+    Why not let it go to 0?
+    
+    Beginner Answer: A cart item with quantity 0 does not make sense from a user
+    perspective. It would show up as a line item with "0" next to it and a $0.00 subtotal.
+    Removing it entirely gives a cleaner experience. It also prevents the NavBar badge from
+    counting items with zero quantity.
+    
+    Experienced Answer: Allowing quantity 0 creates a data integrity problem that leaks into
+    multiple components. The cart total selector would need to filter out zero-quantity items
+    before summing. The NavBar badge would need to exclude them from the count. The empty
+    state check (cartItems.length === 0) would fail because the array is not empty, it just
+    has items with zero quantity. The "Add to Cart" button's quantity check would show "In Cart
+    (0)," which is semantically confusing. Every consumer of cart state would need defensive
+    logic to handle a state that should not exist. By removing the item at quantity 1, the reducer
+    enforces a data invariant: every item in the cart has quantity >= 1. This invariant
+    simplifies every downstream consumer. No component needs to filter or guard against
+    zero-quantity items. This is a general principle: push constraints as close to the data
+    mutation as possible. Reducers are the single point where state changes. If the reducer
+    guarantees valid state, every selector and every component benefits automatically. The
+    alternative (letting invalid state exist and defending against it everywhere) violates the DRY
+    principle and is a constant source of subtle bugs.
+
+## Question 62:
+    
+    Why is cartTotal computed via a selector and not stored as a separate field in the Redux
+    state?
+    
+    Beginner Answer: If you stored the total in Redux state, you would have to update it inside
+    every reducer that changes the cart: addToCart, removeFromCart, incrementQuantity,
+    decrementQuantity, and clearCart. If you forget to update it in even one reducer, the
+    total would be wrong. Computing it from the items array means it is always correct.
+    
+    Experienced Answer: Storing a derived value alongside its source data creates a
+    normalization violation. The total is a deterministic function of the items array: \text{total}
+    = \sum_{i} \text{price}_i \times \text{quantity}_i. Storing it separately means two
+    representations of the same fact exist in the store. Every reducer that modifies items must
+    also update total, creating five synchronization points (add, remove, increment,
+    decrement, clear). Missing one produces a bug that only surfaces in specific user flows ("the
+    total is wrong after removing an item but correct after incrementing"). These bugs are
+    notoriously hard to reproduce because they depend on action sequence. The selector
+    approach computes the total on demand from the single source of truth (items). It is
+    correct by construction. No reducer needs to know about the total. The cost is
+    recomputation on every access, but for a cart with tens of items, .reduce() takes
+    microseconds. If the computation were genuinely expensive (aggregating thousands of
+    records with complex logic), createSelector from Reselect memoizes the result and only
+    recomputes when the input (items reference) changes. This gives you both correctness
+    (derived from source) and performance (cached until invalid). The principle is the same one
+    from database design: do not store what you can compute. Store facts, derive conclusions.
