@@ -46,6 +46,7 @@
     Beginner answer: react contains the core API for defining components and elements.
     react-dom is the renderer that knows how to work with the browser DOM. They are
     separate so React's core can be reused with other renderers like React Native.
+    
     Experienced answer: The separation enforces a clean architectural boundary between the
     reconciler (which diffs element trees and determines what changed) and the host
     environment (which executes platform-specific mutations). react owns the reconciler
@@ -72,7 +73,6 @@
     elements from component invocations. A lowercase tag compiles to a string argument:
     React.createElement("div", ...), telling the renderer to create a DOM node of that
     type. An uppercase tag compiles to an identifier reference:
-
     React.createElement(Greeting, ...), telling the renderer to call that function (or
     instantiate that class) and recursively process its return value. This is a transform-time
     decision, not a runtime check. If you accidentally lowercase a component, the transform
