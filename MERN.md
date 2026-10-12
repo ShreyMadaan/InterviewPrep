@@ -203,3 +203,130 @@
         itself has a distinct signature with four parameters (err, req, res, next) and must be
         registered after all routes. It centralizes error formatting, logging, and status code decisions
         in one place.
+
+## Question 10:
+        What is middleware in Express? Walk through the lifecycle of a request.
+        
+        Beginner Answer: Middleware is a function that runs between receiving the request and
+        sending the response. It has access to req, res, and next. Express runs middleware in
+        order. First global middleware like express.json() runs, then route-specific middleware,
+        then the route handler. Each middleware either calls next() to continue or sends a
+        response to stop.
+        
+        Experienced Answer: Middleware is the fundamental unit of composition in Express. The
+        entire application is a stack of middleware functions, processed sequentially. When a
+        request arrives, Node's http module creates raw req and res objects. Express enhances
+        them with properties like req.body, req.params, req.query, and methods like
+        res.json() and res.status(). Then the stack begins executing. Application-level
+        middleware (registered via app.use()) runs first: CORS headers, body parsing, request
+        logging. Next, Express enters the routing phase. It matches req.method and req.path
+        against the registered router stack. If a match is found, route-level middleware runs
+        (validation, authentication for that specific route), followed by the controller function. The
+        controller is itself middleware. It just happens to be the last one in the chain for that route,
+        and it sends a response instead of calling next(). If no route matches, the request falls
+        through to the 404 catch-all. If any middleware calls next(err) with an argument, Express
+        skips all remaining normal middleware and jumps to error-handling middleware (identified
+        by its four-parameter signature). One important detail: middleware can modify req.
+        Authentication middleware commonly attaches req.user after verifying a token, making
+        user data available to all downstream handlers without repeated token parsing.
+
+## Question 11:
+        What is MVC and why does it matter for backend projects?
+        
+        Beginner Answer: MVC stands for Model, View, Controller. In backend APIs (where there is
+        no view), Model handles the database schema, Controller handles the business logic, and
+        Routes map URLs to controller functions. It matters because it organizes code into separate
+        files by responsibility, making the project easier to navigate and maintain.
+        
+        Experienced Answer: MVC is a separation-of-concerns pattern that divides an application
+        into layers with distinct responsibilities. The Model encapsulates data structure, validation,
+        and database interactions. The Controller contains business logic: it reads input from the
+        request, orchestrates operations on models, and formats the response. Routes (which
+        replace the View layer in APIs) define the interface: which HTTP method and path trigger
+        which controller. This separation provides several concrete benefits. Testability: you can
+        unit-test controller logic by mocking the model, without needing a real database.
+        Reusability: if both a REST endpoint and a background job need to create a user, they both
+        call the same controller or service function. Team scaling: frontend routes, business logic,
+        and data schemas can be worked on in parallel with fewer merge conflicts. Maintainability:
+        when a bug is reported in how items are created, you know to look in itemController.js,
+        not search through a 2000-line file. In larger projects, MVC often evolves into a more
+        granular architecture. A "service layer" is introduced between controllers and models to
+        house business logic that spans multiple models, keeping controllers thin (they only handle
+        HTTP concerns) and services reusable across different interfaces (REST API, GraphQL, CLI
+        tools).
+
+## Question 12:
+        What happens if a middleware neither calls next() nor sends a response?
+        
+        Beginner Answer: The request hangs. The client keeps waiting for a response that never
+        comes, and eventually the request times out. This is a bug.
+        
+        Experienced Answer: The request enters a deadlock state. Express has passed control to
+        this middleware and is waiting for one of two signals: next() to continue the chain, or a
+        response method to end it. Without either, the middleware function returns (since
+        JavaScript does not block), but Express has no mechanism to detect that the middleware
+        "forgot" to act. The req and res objects stay in memory, the TCP connection remains open,
+        and the client waits. After the client's timeout (typically 30 to 120 seconds depending on the
+        HTTP client), the client aborts. On the server side, the res object eventually gets garbage
+        collected, but the connection slot was wasted. In a production server under load, this is a
+        resource leak. If enough requests hit a "dead" middleware, the server exhausts its
+        connection pool and stops responding to all requests. Debugging this requires request-level
+        logging and timeout monitoring. A defensive practice is setting a server-side timeout
+        (server.setTimeout(30000)) and adding a timeout middleware that sends a 503 if a
+        response has not been sent within a threshold. Linters like eslint-plugin-express can
+        also catch middleware functions that have code paths where neither next() nor res is
+        called.
+
+## Question 13:
+        What is the difference between application-level and route-level middleware?
+        
+        Beginner Answer: Application-level middleware runs on every request using app.use().
+        Route-level middleware runs only on specific routes by passing it as an argument before the
+        handler function. For example, app.use(express.json()) is application-level, while a
+        validation function passed to a single POST route is route-level.
+        
+        Experienced Answer: The distinction is about scope. Application-level middleware is
+        registered on the app object via app.use() or app.METHOD(). It runs for every incoming
+        request (or every request matching a path prefix if one is specified). Examples include body
+        parsing, CORS, request logging, and security headers. These form the "outer shell" of the
+        application. Route-level middleware is registered on an express.Router() instance or
+        passed inline to a specific route definition. It runs only when that specific route is matched.
+        Examples include authentication checks for protected routes, request validation for
+        POST/PUT endpoints, and role-based authorization. The key architectural benefit is
+        granularity. You do not want validation logic for a POST body running on GET requests. You
+        do not want admin-only authorization middleware running on public routes. Route-level
+        middleware lets you compose precise pipelines per endpoint:
+        router.post("/", validateBody, checkDuplicates, createItem);
+        router.get("/", getAllItems); // no validation needed
+        There is also router-level use(), which applies middleware to all routes within that router:
+        const adminRouter = express.Router();
+        adminRouter.use(requireAuth, requireAdmin); // all admin routes are protected
+        adminRouter.get("/users", listAllUsers);
+        adminRouter.delete("/users/:id", deleteUser);
+        This creates layered security without repeating middleware on every route definition.
+
+## Question 14:
+        How does Mongoose schema validation differ from manual validation in a controller?
+        
+        Beginner Answer: Mongoose schema validation is defined in the model (like required:
+        true, enum, min) and runs automatically when you save or create a document. Manual
+        validation is if checks written in the controller before calling the database. Schema
+        validation is more consistent because it always applies, while manual validation can be
+        forgotten.
+        
+        Experienced Answer: They serve different purposes and a well-built application uses both.
+        Mongoose schema validation is the last line of defense. It is declarative, lives next to the
+        data definition, and is enforced regardless of which code path writes to the database. If three
+        different controllers and a background job all create users, schema validation ensures every
+        user document has a valid email. You cannot bypass it without deliberately disabling it.
+        However, schema validation has limitations. It operates on individual fields in isolation. It
+        cannot easily express cross-field rules ("endDate must be after startDate"), conditional
+        requirements ("phone is required if contactMethod is 'sms'"), or business rules that require
+        database lookups ("email must not already exist"). Manual validation in the controller (or a
+        dedicated validation middleware) handles these cases. It also provides better error
+        messages and earlier rejection. A 400 response from controller validation is semantically
+        clear: "your input is wrong." A Mongoose ValidationError caught in a catch block requires
+        parsing to extract field-level errors and map them to user-friendly messages. The ideal
+        layering is: validation middleware (or controller checks) for input shape and business rules,
+        and schema validation for data integrity constraints. The controller says "is this a valid
+        request?" while the schema says "is this a valid document?"
